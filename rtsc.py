@@ -7,16 +7,10 @@ class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
 	grammar = open("grammar.bnf").read()
 	lexer = open("lexer.rxl").read()
-	csharp_header = """// RTSC Generated C# code.
-
-using System.Collections.Generic;
-
-public class EntryPoint {
-	public static void Main() {
-		RTSC_Main.RTSC_func_main();
-	}
-}
-
+	js_header = """// RTSC Generated JS code.
+"""
+	js_footer = """
+RTSC_func_main();
 """
 	import_search_path = [".", "libs"]
 
@@ -25,10 +19,8 @@ public class EntryPoint {
 		self.import_stack = []
 		self.imported = set()
 		self.where = Class(None)
-		for name in ("int",):
+		for name in ("print",):
 			self.where[name] = BuiltIn(name)
-		self.where["float"] = BuiltIn("double")
-		self.where["print"] = BuiltIn("print", "System.Console.WriteLine")
 
 	def import_file(self, name):
 		if name in self.imported:
@@ -212,8 +204,8 @@ public class EntryPoint {
 		else:
 			where.code_stack[-1].append(statement)
 
-	def write_csharp(self):
-		return self.csharp_header + self.where.write_csharp() + "\n"
+	def write_js(self):
+		return self.js_header + self.where.write_js() + self.js_footer + "\n"
 
 class ForwardsRef:
 	def __init__(self, where, name):
@@ -264,20 +256,18 @@ class Class:
 			return "RTSC_Main"
 		return "RTSC_class_%s" % self.name
 
-	def write_csharp(self):
+	def write_js(self):
 		self.inherits = [i.resolve() for i in self.inherits]
 		s = []
 		objs = self.state.values()
-		deferred = []
-		if self.name == None:
-			deferred = [i for i in objs if not isinstance(i, (Function, BuiltIn, Variable))]
-			objs = [i for i in objs if i not in deferred]
-		s.append("public class %s : %s {\n" % (self.identifier(), ", ".join(["RTSCClass"] + [i.identifier() for i in self.inherits])))
+		if self.name:
+			s.append("function %s() {\n" % (self.identifier(),))
 		for obj in objs:
-			s.append(indent(obj.write_csharp()))
-		s.append("}\n")
-		for obj in deferred:
-			s.append(obj.write_csharp())
+			js = obj.write_js()
+			if self.name: js = indent(js)
+			s.append(js)
+		if self.name:
+			s.append("}\n")
 		return "".join(s)
 
 class BuiltIn:
@@ -290,7 +280,7 @@ class BuiltIn:
 	def identifier(self):
 		return self.result
 
-	def write_csharp(self):
+	def write_js(self):
 		return ""
 
 unique_counter = 0
@@ -305,16 +295,13 @@ class Function(Class):
 	def identifier(self):
 		return "RTSC_func_%s" % self.name
 
-	def write_csharp(self):
+	def write_js(self):
 		self.arguments = [ (resolve_type(arg[0]), arg[1]) for arg in self.arguments ]
-		# Confusing, but top level functions are two down from the top.
-		staticness = " static" if self.parent.parent == None else ""
 		for arg in self.arguments:
 			self[arg[1]] = Variable(arg[1])
-		fmt = (staticness, self.identifier(), ", ".join(arg[0].identifier() + " " + self[arg[1]].identifier() for arg in self.arguments))
-		s = ["public%s dynamic %s(%s) {\n" % fmt]
+		fmt = (self.identifier(), ", ".join(self[arg[1]].identifier() for arg in self.arguments))
+		s = ["function %s(%s) {\n" % fmt]
 		s.append(indent(self.write_for(self.code, getValue=False)[0]))
-		s.append("\treturn null;\n")
 		s.append("}\n")
 		return "".join(s)
 
@@ -345,7 +332,7 @@ class Function(Class):
 			fmt = (func[1], ", ".join(i[1] for i in args))
 			if getValue:
 				tag = unique()
-				return (preamble + "dynamic %s = %s(%s);\n" % ((tag,)+fmt), tag)
+				return (preamble + "%s = %s(%s);\n" % ((tag,)+fmt), tag)
 			else:
 				return (preamble + "%s(%s);\n" % fmt, "")
 		elif code[0] == "float":
@@ -359,7 +346,7 @@ class Function(Class):
 				return ("", code[1].string)
 			assert False
 		elif code[0] == "assignment":
-			var = extra = preamble = ""
+			extra = preamble = ""
 			if isinstance(code[1], list):
 				if code[1][0] == "getattr":
 					preamble, lhs = self.write_for(code[1][1])
@@ -370,13 +357,10 @@ class Function(Class):
 					#extra = "[" + code[1][2].string
 			else:
 				lhs = code[1].string
-				if lhs not in self:
-					self[lhs] = Variable(lhs)
-					var = "dynamic "
 				lhs = self[lhs]
 			rhs = self.write_for(code[-1])
-			fmt = (var, lhs.identifier(), extra, code[3].string if len(code) == 4 else "", rhs[1])
-			return (preamble + rhs[0] + "%s%s%s %s= %s;\n" % fmt, lhs.identifier())
+			fmt = (lhs.identifier(), extra, code[3].string if len(code) == 4 else "", rhs[1])
+			return (preamble + rhs[0] + "%s%s %s= %s;\n" % fmt, lhs.identifier())
 		elif code[0] in ("op", "indexing"):
 			lhs = self.write_for(code[1])
 			rhs = self.write_for(code[-1])
@@ -385,26 +369,26 @@ class Function(Class):
 			else:
 				op, post = "[]"
 			tag = unique()
-			return (lhs[0] + rhs[0] + "dynamic %s = %s%s%s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
+			return (lhs[0] + rhs[0] + "%s = %s%s%s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
 		elif code[0] == "unop":
 			rhs = self.write_for(code[-1])
 			tag = unique()
-			return (rhs[0] + "dynamic %s = %s%s;\n" % (tag, code[1].string, rhs[1]), tag)
+			return (rhs[0] + "%s = %s%s;\n" % (tag, code[1].string, rhs[1]), tag)
 		elif code[0] == "list":
 			args = map(self.write_for, code[1:])
-			return ("".join(i[0] for i in args), "new dynamic[] {" + ", ".join(i[1] for i in args) + "}")
+			return ("".join(i[0] for i in args), "[" + ", ".join(i[1] for i in args) + "]")
 		elif code[0] == "loop":
 			if code[1].string == "for":
 				itr = self.write_for(code[3])
 				lhs = code[2].string
 				self[lhs] = lhs = Variable(lhs)
-				return (itr[0] + "foreach (dynamic %s in %s) {\n" % (lhs.identifier(), itr[1]) + indent(self.write_for(code[4])[0]) + "}\n", "")
+				return (itr[0] + "for (%s in %s) {\n" % (lhs.identifier(), itr[1]) + indent(self.write_for(code[4])[0]) + "}\n", "")
 		elif code[0] == "declaration":
 			type_of = self.type_code(code[1])
 			for dec_unit in code[2:]:
 				new = self[dec_unit[1].string] = Variable(dec_unit[1].string)
 				new.type_of = type_of
-				preamble = new.write_csharp()
+				preamble = new.write_js()
 				if len(dec_unit) == 3:
 					asgn, _ = self.write_for(["assignment", dec_unit[1], dec_unit[2]])
 					preamble = preamble + asgn
@@ -413,7 +397,7 @@ class Function(Class):
 			if len(code) == 2:
 				lhs = self.write_for(code[1])
 				tag = unique()
-				return (lhs[0] + "int[] %s = RTSC.range(0, %s);\n" % (tag, lhs[1]), tag)
+				return (lhs[0] + "%s = range(0, %s);\n" % (tag, lhs[1]), tag)
 		elif code[0] == "list_comp":
 			itr = self.write_for(code[3])
 			lhs = code[2].string
@@ -421,7 +405,7 @@ class Function(Class):
 			tag = unique()
 			expr = self.write_for(code[1])
 			fmt = (tag, lhs.identifier(), itr[1], indent(expr[0]), tag, expr[1])
-			return (itr[0] + "List<dynamic> %s = new List<dynamic>();\nforeach (dynamic %s in %s) {\n%s\t%s.Add((dynamic)%s);\n}\n" % fmt, tag)
+			return (itr[0] + "%s = [];\nfor (%s in %s) {\n%s\t%s.push(%s);\n}\n" % fmt, tag)
 		elif code[0] == "valued":
 			if code[1].string == "return":
 				lhs = self.write_for(code[2])
@@ -433,7 +417,7 @@ class Function(Class):
 
 def resolve_type(x):
 	if x == None:
-		return BuiltIn("dynamic")
+		return BuiltIn("var")
 	return x.resolve()
 
 class Variable(Class):
@@ -443,22 +427,23 @@ class Variable(Class):
 	def identifier(self):
 		return "RTSC_var_%s" % self.name
 
-	def write_csharp(self):
+	def write_js(self):
 		self.type_of = resolve_type(self.type_of)
 		return "%s %s;\n" % (self.type_of.identifier(), self.identifier())
 
 ctx = Compiler()
 ctx.import_file(sys.argv[1])
 ctx.build_structure(ctx.churn())
-csharp = ctx.write_csharp()
+js = ctx.write_js()
 
-import remote_compilation
-status, binary = remote_compilation.remote_compile(csharp)
+import compilation
+status, binary = compilation.remote_compile(js)
 
 if status == "g":
-	fd = open("Main.exe", "w")
+	fd = open("Main", "w")
 	fd.write(binary)
 	fd.close()
+	os.chmod("Main", 0755)
 elif status == "e":
 	print "Error:"
 	print binary.strip()

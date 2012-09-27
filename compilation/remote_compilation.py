@@ -37,8 +37,8 @@ def unescape(s):
 	s = s.replace(r"\b", "\\")
 	return s
 
-def connect(channel, host="ubuntu.cba.mit.edu", port=50002, timeout=None):
-	sock = socket.create_connection(("ubuntu.cba.mit.edu", 50002), timeout)
+def connect(channel, host="localhost", port=50002, timeout=None):
+	sock = socket.create_connection((host, port), timeout)
 	fd = sock.makefile()
 	def yes():
 		assert fd.readline() == "yes\n"
@@ -65,17 +65,25 @@ def remote_compile(code, timeout=None):
 	datum = datum.decode("base64")
 	return val, datum
 
+header_write_time = -float("inf")
 def local_compile(code):
+	global standard_header, header_write_time
+	newest = os.stat("std.js").st_mtime
+	if newest > header_write_time:
+		print "Reloading: std.js"
+		standard_header = open("std.js").read()
+		header_write_time = newest
 	write_fd = open("v8_base/code.js", "w")
+	write_fd.write(standard_header)
 	write_fd.write(code)
 	write_fd.close()
 	try:
 		subprocess.check_output(["objcopy", "--input", "binary", "--output", "elf64-x86-64",
-			"--binary-architecture", "i386:x86-64", "v8_base/code.js", "javascript.o"],
-			stderr=subprocess.STDOUT)
-		subprocess.check_output(["g++", "-o", "v8_base/main", "v8_base/launch.o", "v8_base/javascript.o",
-			"v8_base/libs/libv8_base.a", "v8_base/libs/libv8_snapshot.a", "-lpthread"],
-			stderr=subprocess.STDOUT)
+			"--binary-architecture", "i386:x86-64", "code.js", "javascript.o"],
+			stderr=subprocess.STDOUT, cwd="v8_base")
+		subprocess.check_output(["g++", "-o", "main", "launch.o", "javascript.o",
+			"libs64/libv8_base.a", "libs64/libv8_snapshot.a", "-lpthread"],
+			stderr=subprocess.STDOUT, cwd="v8_base")
 		data = open("v8_base/main").read()
 		return "g", data
 	except subprocess.CalledProcessError, e:
