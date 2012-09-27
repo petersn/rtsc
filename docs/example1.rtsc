@@ -1,0 +1,14 @@
+# Hello world, in RTSC.
+
+def foo(int x)
+	return x*x
+
+def main()
+	for i in [..10]
+		print(i)
+	print("Hello, world!")
+#	array = [[y*y | y <- x] | x <- [[1,2,3], [4,5,6], [7,8,9]]]
+#	foo(array[1])
+#	for i in array
+#		print(i)
+

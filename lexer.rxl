@@ -1,0 +1,16 @@
+## Regular Expression Lexer file for sxs.
+
+typename       = float|int
+reserved       = class|subclass|return|continue|break|import|def|and|or|for|while|if|in
+token          = ['a-zA-Z_]['a-zA-Z0-9_]*
+##number         = [0-9]+([.][0-9]*)?|[0-9]*[.][0-9]+
+number         = [0-9]+
+string         = "(\\"|[^"])*"
+tab            = \t
+space          = [ ]
+
+newline:       = \n+
+comment:       = #.*$
+
+symbol         = .
+

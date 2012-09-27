@@ -1,0 +1,87 @@
+# Primary grammar for Peterscript.
+
+_expr_p0:  = expr_p0 | float | "spec:symbol:("~ _expr_p6 "spec:symbol:)"~ | list | dict
+_expr_p1:  = _expr_p0  | expr_p1
+_expr_p12: = _expr_p1  | expr_p12
+_expr_p15: = _expr_p12 | expr_p15
+_expr_p2:  = _expr_p15 | expr_p2
+_expr_p3:  = _expr_p2  | expr_p3
+_expr_p4:  = _expr_p3  | expr_p4
+_expr_p42: = _expr_p4  | expr_p42
+_expr_p45: = _expr_p42 | expr_p45
+_expr_p5:  = _expr_p45 | expr_p5
+_expr_p6:  = _expr_p5  | expr_p6
+
+expr_p0:literal = "type:number" | "type:string" | "type:token"
+expr_p1:        = function_call | indexing | getattr
+expr_p12:       = interval | list_comp
+expr_p15:op     = _expr_p12 "match:symbol:^:$" _expr_p15
+expr_p2:unop    = "spec:symbol:-" _expr_p2
+expr_p3:op      = _expr_p2 "match:symbol:*:/:%" _expr_p3
+expr_p4:op      = _expr_p3 "match:symbol:+:-" _expr_p4
+expr_p42:op     = _expr_p4 "match:symbol:<:>" _expr_p42
+expr_p42:op     = _expr_p4 "match:symbol:<:>:!:=" "match:symbol:=" _expr_p42
+expr_p45:op     = _expr_p42 "match:reserved:and:or" _expr_p45
+expr_p5:expr    = assignment
+#expr_p6:expr    = expr_list
+
+float = "type:number" "spec:symbol:." | "spec:symbol:." "type:number" | "type:number" "spec:symbol:." "type:number"
+float = "type:number" "regex:token:e[0-9]+" | "type:number" "spec:token:e" "spec:symbol:-" "type:number"
+
+_list_comp_group: = "type:token" "spec:symbol:<"~ "spec:symbol:-"~ _expr_p42
+list_comp_group: = _list_comp_group | _list_comp_group @@
+list_comp = "spec:symbol:["~ expr "numbs:symbol:124"~ list_comp_group "spec:symbol:]"~
+
+expr = _expr_p6
+
+#_expr_list: = _expr_p5 "spec:symbol:;"~ | _expr_p5 "spec:symbol:;"~ _expr_p5 | _expr_p5 "spec:symbol:;"~ @@
+#expr_list = _expr_list
+
+interval = "spec:symbol:["~ _expr_p4 "spec:symbol:."~ "spec:symbol:."~ expr "spec:symbol:]"~
+interval = "spec:symbol:["~ _expr_p4 "spec:symbol:,"~ expr "spec:symbol:."~ "spec:symbol:."~ expr "spec:symbol:]"~ 
+interval = "spec:symbol:["~ "spec:symbol:."~ "spec:symbol:."~ expr "spec:symbol:]"~ 
+
+list = "spec:symbol:["~ arguments "spec:symbol:]"~ | "spec:symbol:["~ "spec:symbol:]"~
+dict = "spec:symbol:{"~ mappings "spec:symbol:}"~ | "spec:symbol:{"~ "spec:symbol:}"~
+arguments: = _expr_p6 | _expr_p6 "spec:symbol:,"~ @@
+one_map: = _expr_p6 "match/symbol/:"~ _expr_p6
+mappings: = one_map | one_map "spec:symbol:,"~ @@
+
+function_call = _expr_p1 "spec:symbol:("~ arguments "spec:symbol:)"~ | _expr_p1 "spec:symbol:("~ "spec:symbol:)"~
+indexment: = "match/symbol/:" | "match/symbol/:" expr
+indexing_rest: = expr "spec:symbol:]"~
+indexing_rest: = expr indexment "spec:symbol:]"~
+indexing_rest: = expr indexment indexment "spec:symbol:]"~
+indexing_rest: = indexment "spec:symbol:]"~
+indexing_rest: = indexment indexment "spec:symbol:]"~
+indexing = _expr_p12 "spec:symbol:["~ indexing_rest
+getattr = _expr_p12 "spec:symbol:."~ "type:token"
+inplace_op: = "="~ | "match:symbol:+:-:*:/:%" "="~ 
+assignment = "type:token" inplace_op _expr_p5 | indexing inplace_op _expr_p5 | getattr inplace_op _expr_p5
+
+array_type = "spec:symbol:["~ type "spec:symbol:]"
+type = "type:token" | "type:typename" | array_type
+argument = "type:token" | type "type:token"
+arguments_definition: = argument | argument "spec:symbol:,"~ @@
+function_name: = "type:token" | "type:token" "match:symbol:."~ "type:token"
+function_definition = "spec:reserved:def"~ function_name "spec:symbol:("~ arguments_definition "spec:symbol:)"~ | "def"~ function_name "spec:symbol:("~ "spec:symbol:)"~
+
+loop = "spec:reserved:for" "type:token" "spec:reserved:in"~ expr
+loop = "spec:reserved:while" expr
+loop = "spec:reserved:if" expr
+
+class = "spec:reserved:class"~ "type:token"
+import = "spec:reserved:import"~ "type:token"
+
+standalone = "spec:reserved:break" | "spec:reserved:continue" | "spec:reserved:return"
+valued = "spec:reserved:return" expr
+
+declaration_unit = "type:token" | "type:token" "spec:symbol:="~ expr
+declaration_sequence: = declaration_unit | declaration_unit "spec:symbol:,"~ @@
+declaration = type declaration_sequence
+
+token_sequence: = "type:token" | "type:token" "spec:symbol:,"~ @@
+subclass = "spec:reserved:subclass"~ token_sequence
+
+main = expr | function_definition | loop | class | subclass | import | standalone | valued | declaration
+
