@@ -1,7 +1,16 @@
 # Main compiler!
 
-import sys, os, struct
+import sys, os, struct, time, pprint
 import parsing
+
+normal = "\x1B\x5B\x30\x6D"
+grey   = "\x1B\x5B\x30\x31\x3B\x33\x30\x6D"
+red    = "\x1B\x5B\x30\x31\x3B\x33\x31\x6D"
+green  = "\x1B\x5B\x30\x31\x3B\x33\x32\x6D"
+yellow = "\x1B\x5B\x30\x31\x3B\x33\x33\x6D"
+blue   = "\x1B\x5B\x30\x31\x3B\x33\x34\x6D"
+purple = "\x1B\x5B\x30\x31\x3B\x33\x35\x6D"
+teal   = "\x1B\x5B\x30\x31\x3B\x33\x36\x6D"
 
 class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
@@ -10,7 +19,7 @@ class Compiler:
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
-RTSC_func_main();
+RTSC_main();
 """
 	import_search_path = [".", "libs"]
 
@@ -21,6 +30,7 @@ RTSC_func_main();
 		self.where = Class(None)
 		for name in ("print",):
 			self.where[name] = BuiltIn(name)
+		self.where["self"] = BuiltIn("self", "this")
 
 	def import_file(self, name):
 		if name in self.imported:
@@ -59,6 +69,8 @@ RTSC_func_main();
 						pass
 				if statements != None:
 					self.scan_for_imports(statements)
+					if code and code[0] == "expr_list":
+						code = code[1:]
 					code = statements + code
 					break
 			else:
@@ -254,55 +266,32 @@ class Class:
 	def identifier(self):
 		if self.name == None:
 			return "RTSC_Main"
-		return "RTSC_class_%s" % self.name
+		return "RTSC_%s" % self.name
 
 	def write_js(self):
 		self.inherits = [i.resolve() for i in self.inherits]
 		s = []
 		objs = self.state.values()
 		if self.name:
-			s.append("function %s() {\n" % (self.identifier(),))
+			s.append("function _RTSC_class_%s() {\n" % (self.name,))
 		for obj in objs:
+			if obj.executable:
+				continue
 			js = obj.write_js()
 			if self.name: js = indent(js)
 			s.append(js)
+		s.append(indent(self.write_for(self.code, getValue=False)[0]))
 		if self.name:
 			s.append("}\n")
-		return "".join(s)
-
-class BuiltIn:
-	def __init__(self, name, result=None):
-		self.name, self.result = name, result or name
-
-	def resolve(self):
-		return self
-
-	def identifier(self):
-		return self.result
-
-	def write_js(self):
-		return ""
-
-unique_counter = 0
-def unique():
-	global unique_counter
-	unique_counter += 1
-	return "tag%i" % unique_counter
-
-class Function(Class):
-	executable = True
-
-	def identifier(self):
-		return "RTSC_func_%s" % self.name
-
-	def write_js(self):
-		self.arguments = [ (resolve_type(arg[0]), arg[1]) for arg in self.arguments ]
-		for arg in self.arguments:
-			self[arg[1]] = Variable(arg[1])
-		fmt = (self.identifier(), ", ".join(self[arg[1]].identifier() for arg in self.arguments))
-		s = ["function %s(%s) {\n" % fmt]
-		s.append(indent(self.write_for(self.code, getValue=False)[0]))
-		s.append("}\n")
+			s.append("_RTSC_class_%s.prototype.RTSC___init__ = function() {}\n" % self.name)
+		for obj in objs:
+			if not obj.executable:
+				continue
+			s.append(obj.write_js())
+			if self.name:
+				s.append("_RTSC_class_%s.prototype.%s = %s;\n" % (self.name, obj.identifier(), obj.identifier()))
+		if self.name:
+			s.append("function %s() {\n\tobj = new _RTSC_class_%s();\n\tobj.RTSC___init__.apply(obj, arguments);\n\treturn obj;\n}\n" % (self.identifier(), self.name))
 		return "".join(s)
 
 	def type_code(self, typ):
@@ -328,7 +317,7 @@ class Function(Class):
 		elif code[0] == "function_call":
 			func = self.write_for(code[1])
 			args = map(self.write_for, code[2:])
-			preamble = "".join(i[0] for i in args)
+			preamble = func[0] + "".join(i[0] for i in args)
 			fmt = (func[1], ", ".join(i[1] for i in args))
 			if getValue:
 				tag = unique()
@@ -340,6 +329,7 @@ class Function(Class):
 		elif code[0] == "literal":
 			if code[1].type == "token":
 				tok = code[1].string
+				return ("", "RTSC_" + tok)
 				self[tok] = self[tok].resolve()
 				return ("", self[tok].identifier())
 			elif code[1].type in ("string", "number"):
@@ -350,16 +340,20 @@ class Function(Class):
 			if isinstance(code[1], list):
 				if code[1][0] == "getattr":
 					preamble, lhs = self.write_for(code[1][1])
-					extra = "." + code[1][2].string
+					extra = ".RTSC_" + code[1][2].string
 				elif code[1][0] == "indexing":
 					preamble, lhs = self.write_for(code[1][1])
-					lhs = lhs[1]
-					#extra = "[" + code[1][2].string
+					more_preamble, index = self.write_for(code[1][2])
+					preamble += more_preamble
+					extra = "[" + index + "]"
+				lhs = BuiltIn(lhs)
 			else:
 				lhs = code[1].string
+				if lhs not in self:
+					self[lhs] = Variable(lhs)
 				lhs = self[lhs]
 			rhs = self.write_for(code[-1])
-			fmt = (lhs.identifier(), extra, code[3].string if len(code) == 4 else "", rhs[1])
+			fmt = (lhs.identifier(), extra, (code[2].string if len(code) == 4 else ""), rhs[1])
 			return (preamble + rhs[0] + "%s%s %s= %s;\n" % fmt, lhs.identifier())
 		elif code[0] in ("op", "indexing"):
 			lhs = self.write_for(code[1])
@@ -369,7 +363,10 @@ class Function(Class):
 			else:
 				op, post = "[]"
 			tag = unique()
-			return (lhs[0] + rhs[0] + "%s = %s%s%s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
+			if op == "^":
+				return (lhs[0] + rhs[0] + "%s = Math.pow(%s, %s);\n" % (tag, lhs[1], rhs[1]), tag)
+			else:
+				return (lhs[0] + rhs[0] + "%s = %s%s%s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
 		elif code[0] == "unop":
 			rhs = self.write_for(code[-1])
 			tag = unique()
@@ -383,6 +380,12 @@ class Function(Class):
 				lhs = code[2].string
 				self[lhs] = lhs = Variable(lhs)
 				return (itr[0] + "for (%s in %s) {\n" % (lhs.identifier(), itr[1]) + indent(self.write_for(code[4])[0]) + "}\n", "")
+			elif code[1].string == "while":
+				expr = self.write_for(code[2])
+				return ("while (true) {\n%s\tif (!(%s)) break;\n%s}\n" % (indent(expr[0]), expr[1], indent(self.write_for(code[3])[0])), "")
+			elif code[1].string == "if":
+				expr = self.write_for(code[2])
+				return (expr[0] + "if (%s) {\n%s}\n" % (expr[1], indent(self.write_for(code[3])[0])), "")
 		elif code[0] == "declaration":
 			type_of = self.type_code(code[1])
 			for dec_unit in code[2:]:
@@ -406,6 +409,13 @@ class Function(Class):
 			expr = self.write_for(code[1])
 			fmt = (tag, lhs.identifier(), itr[1], indent(expr[0]), tag, expr[1])
 			return (itr[0] + "%s = [];\nfor (%s in %s) {\n%s\t%s.push(%s);\n}\n" % fmt, tag)
+		elif code[0] == "lambda":
+			tag = unique()
+			expr = self.write_for(code[-1])
+			return ("%s = function(%s) {\n%s\treturn %s;\n}\n" % (tag, ", ".join("RTSC_" + i[1].string for i in code[1:-1]), indent(expr[0]), expr[1]), tag)
+		elif code[0] == "getattr":
+			expr = self.write_for(code[1])
+			return (expr[0], expr[1]+".RTSC_"+code[2].string)
 		elif code[0] == "valued":
 			if code[1].string == "return":
 				lhs = self.write_for(code[2])
@@ -414,6 +424,43 @@ class Function(Class):
 			print code
 			assert False
 		return (s, "")
+
+class BuiltIn:
+	executable = False
+
+	def __init__(self, name, result=None):
+		self.name, self.result = name, result or name
+
+	def resolve(self):
+		return self
+
+	def identifier(self):
+		return self.result
+
+	def write_js(self):
+		return ""
+
+unique_counter = 0
+def unique():
+	global unique_counter
+	unique_counter += 1
+	return "tag%i" % unique_counter
+
+class Function(Class):
+	executable = True
+
+	def identifier(self):
+		return "RTSC_%s" % self.name
+
+	def write_js(self):
+		self.arguments = [ (resolve_type(arg[0]), arg[1]) for arg in self.arguments ]
+		for arg in self.arguments:
+			self[arg[1]] = Variable(arg[1])
+		fmt = (self.identifier(), ", ".join(self[arg[1]].identifier() for arg in self.arguments))
+		s = ["function %s(%s) {\n" % fmt]
+		s.append(indent(self.write_for(self.code, getValue=False)[0]))
+		s.append("}\n")
+		return "".join(s)
 
 def resolve_type(x):
 	if x == None:
@@ -425,19 +472,41 @@ class Variable(Class):
 	type_of = None
 
 	def identifier(self):
-		return "RTSC_var_%s" % self.name
+		return "RTSC_%s" % self.name
 
 	def write_js(self):
 		self.type_of = resolve_type(self.type_of)
 		return "%s %s;\n" % (self.type_of.identifier(), self.identifier())
 
+start = time.time()
+
 ctx = Compiler()
 ctx.import_file(sys.argv[1])
-ctx.build_structure(ctx.churn())
+statements = ctx.churn()
+
+end = time.time()
+
+print green + "Time to parse:" + normal, "%.3fs" % (end-start)
+
+#print grey + pprint.pformat(statements) + normal
+
+start = time.time()
+
+ctx.build_structure(statements)
 js = ctx.write_js()
+
+#end = time.time()
+
+#print green + "Time to convert:" + normal, "%.3fs" % (end-start)
+
+#start = time.time()
 
 import compilation
 status, binary = compilation.remote_compile(js)
+
+end = time.time()
+
+print green + "Time to compile:" + normal, "%.3fs" % (end-start)
 
 if status == "g":
 	fd = open("Main", "w")
@@ -445,11 +514,11 @@ if status == "g":
 	fd.close()
 	os.chmod("Main", 0755)
 elif status == "e":
-	print "Error:"
+	print red + "Error:" + normal
 	print binary.strip()
 	exit(1)
 elif status == "f":
-	print "Remote compilation server not running."
+	print red + "Remote compilation server not running." + normal
 else:
 	assert False
 

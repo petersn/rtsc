@@ -22,7 +22,7 @@ expr_p4:op      = _expr_p3 "match:symbol:+:-" _expr_p4
 expr_p42:op     = _expr_p4 "match:symbol:<:>" _expr_p42
 expr_p42:op     = _expr_p4 "match:symbol:<:>:!:=" "match:symbol:=" _expr_p42
 expr_p45:op     = _expr_p42 "match:reserved:and:or" _expr_p45
-expr_p5:expr    = assignment
+expr_p5:expr    = assignment | lambda
 #expr_p6:expr    = expr_list
 
 float = "type:number" "spec:symbol:." | "spec:symbol:." "type:number" | "type:number" "spec:symbol:." "type:number"
@@ -58,6 +58,8 @@ indexing = _expr_p12 "spec:symbol:["~ indexing_rest
 getattr = _expr_p12 "spec:symbol:."~ "type:token"
 inplace_op: = "="~ | "match:symbol:+:-:*:/:%" "="~ 
 assignment = "type:token" inplace_op _expr_p5 | indexing inplace_op _expr_p5 | getattr inplace_op _expr_p5
+
+lambda = "spec:symbol:\"~ arguments_definition "match/symbol/:"~ _expr_p5 | "spec:symbol:\"~ _expr_p5
 
 array_type = "spec:symbol:["~ type "spec:symbol:]"
 type = "type:token" | "type:typename" | array_type

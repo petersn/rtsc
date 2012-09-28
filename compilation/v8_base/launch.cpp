@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 	// built-in global functions.
 	Handle<ObjectTemplate> global = ObjectTemplate::New();
 
-#define FUNC(x) global->Set(String::New(#x), FunctionTemplate::New(x))
+#define FUNC(x) global->Set(String::New("RTSC_" #x), FunctionTemplate::New(x))
 
 	FUNC(print);
 

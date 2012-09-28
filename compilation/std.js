@@ -1,3 +1,6 @@
+// Supporting standard library.
+
+Array.prototype.RTSC_push = Array.prototype.push;
 
 function range(begin, end) {
 	result = [];
