@@ -4,6 +4,9 @@
 #include <string.h>
 #include <iostream>
 
+#include "opengl.h"
+#include "os.h"
+
 using namespace v8;
 using namespace std;
 
@@ -13,7 +16,8 @@ extern char _binary_code_js_end;
 Handle<Value> print(const Arguments& x) {
 	int length = x.Length();
 	for (int ii=0; ii<length; ii++) {
-		cout << *String::AsciiValue(x[ii]);
+		v8::String::AsciiValue argstr(x[ii]);
+		cout << *argstr;
 		if (ii<length-1)
 			cout << " ";
 	}
@@ -28,11 +32,11 @@ int main(int argc, char* argv[]) {
 
 	// Create a template for the global object and set the
 	// built-in global functions.
-	Handle<ObjectTemplate> global = ObjectTemplate::New();
 
-#define FUNC(x) global->Set(String::New("RTSC_" #x), FunctionTemplate::New(x))
-
-	FUNC(print);
+	SCOPE(global);
+	FUNC(global, print, print);
+	opengl_init(global);
+	os_init(global);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.

@@ -1,7 +1,41 @@
-# Hello world, in RTSC.
+# Simple example.
 
-import standard
+pos = [0, 0]
+held = {}
+
+def process_events()
+	while true
+		ev = opengl.poll()
+		if ev == 0
+			break
+		if ev.type == "quit" or (ev.type == "key-down" and ev.key == "escape")
+			opengl.quit()
+			os.exit()
+		if ev.type == "key-down"
+			held[ev.key] = true
+		if ev.type == "key-up"
+			held[ev.key] = false
+
+def mainloop()
+	while true
+		process_events()
+		if held["left-arrow"]
+			pos[0] -= 1
+		if held["right-arrow"]
+			pos[0] += 1
+		if held["up-arrow"]
+			pos[1] -= 1
+		if held["down-arrow"]
+			pos[1] += 1
+		opengl.begin_frame()
+		opengl.draw_texture(textures["grass"], pos[0], pos[1])
+		opengl.end_frame()
+
+textures = {}
 
 def main()
-	print("Hello, world!")
+	opengl.launch(800, 703)
+	opengl.option("cursor-visible", false)
+	textures["grass"] = opengl.load_image("../xs/data/Grass.bmp")
+	mainloop()
 

@@ -33,6 +33,12 @@ class Token:
 			return self.type == args[0] and self.string in args[1:]
 		return self.string == s
 
+	def __copy__(self):
+		return Token((self.type, self.string))
+
+	def __deepcopy__(self, memo):
+		return Token((self.type, self.string))
+
 	def __repr__(self):
 		return "<%s:%s>" % (self.type, self.string)
 

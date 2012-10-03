@@ -1,6 +1,6 @@
 # Main compiler!
 
-import sys, os, struct, time, pprint
+import sys, os, struct, time, pprint, copy
 import parsing
 
 normal = "\x1B\x5B\x30\x6D"
@@ -28,9 +28,10 @@ RTSC_main();
 		self.import_stack = []
 		self.imported = set()
 		self.where = Class(None)
-		for name in ("print",):
-			self.where[name] = BuiltIn(name)
 		self.where["self"] = BuiltIn("self", "this")
+		self.cache_hits = 0
+		self.cache_misses = 0
+		self.parsing_cache = {}
 
 	def import_file(self, name):
 		if name in self.imported:
@@ -38,6 +39,22 @@ RTSC_main();
 		if name in self.import_stack:
 			self.import_stack.remove(name)
 		self.import_stack.append(name)
+
+	def load_parsing_cache(self, path="parse_cache"):
+		data = open(path).read()
+		stmts = self.process_bytecode(data)
+		assert stmts[0] == "parse_cache"
+		for name, a, b in stmts[1:]:
+			assert name == "cache"
+			self.parsing_cache[tuple(a)] = b
+
+	def save_parsing_cache(self, path="parse_cache"):
+		stmts = ["parse_cache"] + [["cache", list(a), b] for a, b in self.parsing_cache.iteritems()]
+		bc = self.produce_bytecode(stmts)
+		a = self.process_bytecode(bc)
+		fd = open(path, "w")
+		fd.write(bc)
+		fd.close()
 
 	def churn(self):
 		code = []
@@ -163,15 +180,22 @@ RTSC_main();
 				starting_block = False
 			while len(whitespace) < len(compile_stack[-1][0]):
 				compile_stack.pop()
-			parsings = [ p for p in self.parser.parse(tokens) ]
-			if len(parsings) == 0:
-				raise Exception("No valid parsings: %r" % line)
-			if len(parsings) != 1:
-				for p in parsings:
-					print(p)
-					print(parsing.pretty(p))
-				raise Exception("Multiple parsings.")
-			p = parsings[0]
+			# Right before we parse, check our parsing cache.
+			if tuple(tokens) in self.parsing_cache:
+				self.cache_hits += 1
+				p = copy.deepcopy(self.parsing_cache[tuple(tokens)])
+			else:
+				self.cache_misses += 1
+				parsings = [ p for p in self.parser.parse(tokens) ]
+				if len(parsings) == 0:
+					raise Exception("No valid parsings: %r" % line)
+				if len(parsings) != 1:
+					for p in parsings:
+						print(p)
+						print(parsing.pretty(p))
+					raise Exception("Multiple parsings.")
+				p = parsings[0]
+				self.parsing_cache[tuple(tokens)] = copy.deepcopy(p)
 			for statement in p[1:]:
 				if statement[0] in ("expr", "standalone", "valued", "declaration", "subclass"):
 					compile_stack[-1][1].append( statement )
@@ -366,7 +390,8 @@ class Class:
 			if op == "^":
 				return (lhs[0] + rhs[0] + "%s = Math.pow(%s, %s);\n" % (tag, lhs[1], rhs[1]), tag)
 			else:
-				return (lhs[0] + rhs[0] + "%s = %s%s%s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
+				op = op.replace("and", "&&").replace("or", "||")
+				return (lhs[0] + rhs[0] + "%s = %s %s %s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
 		elif code[0] == "unop":
 			rhs = self.write_for(code[-1])
 			tag = unique()
@@ -374,6 +399,9 @@ class Class:
 		elif code[0] == "list":
 			args = map(self.write_for, code[1:])
 			return ("".join(i[0] for i in args), "[" + ", ".join(i[1] for i in args) + "]")
+		elif code[0] == "dict":
+			args = map(self.write_for, code[1:])
+			return ("".join(i[0] for i in args), "{" + ", ".join(a[1] + ":" + b[1] for a, b in zip(args[::2], args[1::2])) + "}")
 		elif code[0] == "loop":
 			if code[1].string == "for":
 				itr = self.write_for(code[3])
@@ -420,6 +448,12 @@ class Class:
 			if code[1].string == "return":
 				lhs = self.write_for(code[2])
 				return (lhs[0] + "return %s;\n" % (lhs[1],), "")
+		elif code[0] == "standalone":
+			if code[1].string == "continue":
+				return ("continue;\n", "")
+			elif code[1].string == "break":
+				return ("break;\n", "")
+			else: assert False
 		else:
 			print code
 			assert False
@@ -478,35 +512,33 @@ class Variable(Class):
 		self.type_of = resolve_type(self.type_of)
 		return "%s %s;\n" % (self.type_of.identifier(), self.identifier())
 
-start = time.time()
+class Timer:
+	def __init__(self, msg): self.msg = msg
+	def __enter__(self): self.start = time.time()
+	def __exit__(self, t, val, tb):
+		end = time.time()
+		print green+self.msg+normal, "%.3fs" % (end - self.start)
 
-ctx = Compiler()
-ctx.import_file(sys.argv[1])
-statements = ctx.churn()
+with Timer("Time to load:"):
+	ctx = Compiler()
+	try:
+		ctx.load_parsing_cache()
+	except IOError:
+		print red + "No parsing cache." + normal
 
-end = time.time()
+with Timer("Time to parse:"):
+	ctx.import_file(sys.argv[1])
+	statements = ctx.churn()
 
-print green + "Time to parse:" + normal, "%.3fs" % (end-start)
+#print grey + "Cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))
 
-#print grey + pprint.pformat(statements) + normal
+ctx.save_parsing_cache()
 
-start = time.time()
-
-ctx.build_structure(statements)
-js = ctx.write_js()
-
-#end = time.time()
-
-#print green + "Time to convert:" + normal, "%.3fs" % (end-start)
-
-#start = time.time()
-
-import compilation
-status, binary = compilation.remote_compile(js)
-
-end = time.time()
-
-print green + "Time to compile:" + normal, "%.3fs" % (end-start)
+with Timer("Time to compile:"):
+	ctx.build_structure(statements)
+	js = ctx.write_js()
+	import compilation
+	status, binary = compilation.remote_compile(js)
 
 if status == "g":
 	fd = open("Main", "w")

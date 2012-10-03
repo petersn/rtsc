@@ -1,0 +1,29 @@
+
+def map(f, x)
+	return [f(i) | i <- x ]
+
+def filter(f, x)
+	result = []
+	for i in x
+		if f(i)
+			result.push(i)
+	return result
+
+class point
+	def __init__(x, y)
+		self.x = x
+		self.y = y
+
+	def distanceTo(other)
+		return ((other.x - self.x)^2 + (other.y - self.y)^2)^0.5
+
+	def angleTo(other)
+		delta = other - self
+		return Math.atan2(delta.y, delta.x)
+
+	def __add__(other)
+		return point(self.x + other.x, self.y + other.y)
+
+	def __neg__()
+		return point(-self.x, -self.y)
+

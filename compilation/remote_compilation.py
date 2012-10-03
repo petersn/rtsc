@@ -81,8 +81,8 @@ def local_compile(code):
 		subprocess.check_output(["objcopy", "--input", "binary", "--output", "elf64-x86-64",
 			"--binary-architecture", "i386:x86-64", "code.js", "javascript.o"],
 			stderr=subprocess.STDOUT, cwd="v8_base")
-		subprocess.check_output(["g++", "-o", "main", "launch.o", "javascript.o",
-			"libs64/libv8_base.a", "libs64/libv8_snapshot.a", "-lpthread"],
+		subprocess.check_output(["g++", "-o", "main", "launch.o", "opengl.o", "os.o", "javascript.o",
+			"libs64/libv8_base.a", "libs64/libv8_snapshot.a", "-lpthread", "-lGLU", "-lSDL"],
 			stderr=subprocess.STDOUT, cwd="v8_base")
 		data = open("v8_base/main").read()
 		return "g", data
@@ -92,10 +92,10 @@ def local_compile(code):
 if __name__ == "__main__":
 	import sys
 	if sys.argv[1:] in ([], ["--help"]):
-		print "Usage: %s file.cs [files.cs ...]\n       %s --server" % (sys.argv[0], sys.argv[0])
+		print "Usage: %s file.js [files.js ...]\n       %s --server" % (sys.argv[0], sys.argv[0])
 		print
 		print "  --server -- Runs as a remote compilation server."
-		print "  file.cs  -- Compiles file.cs into file.exe using the remote server."
+		print "  file.js  -- Compiles file.js into file using the remote server."
 	elif sys.argv[1:] == ["--server"]:
 		print "Connecting...",
 		sys.stdout.flush()
