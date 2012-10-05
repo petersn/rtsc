@@ -89,7 +89,7 @@ RTSC_main();
 					self.scan_for_imports(statements)
 					if code and code[0] == "expr_list":
 						code = code[1:]
-					code.append( (module_name, statements) )
+					code.insert(0, (module_name, statements))
 					break
 			else:
 				raise Exception("Couldn't find source: %r" % name)
@@ -251,9 +251,9 @@ RTSC_main();
 	def write_js(self):
 		where_code = [self.js_header]
 		for module_name, where in self.wheres:
-			where_code.append("var RTSC_%s = new function() {\n" % module_name)
+			where_code.append("var RTSC_%s = new (function() {\n" % module_name)
 			where_code.append(where.write_js())
-			where_code.append("}\n")
+			where_code.append("})();\n")
 		where_code.append(self.js_footer)
 		where_code.append("\n")
 		return "".join(where_code)
@@ -311,10 +311,13 @@ class Class:
 
 	def write_js(self):
 		self.inherits = [i.resolve() for i in self.inherits]
-		s = ["// %s\n" % self.name]
+		s = []
+		if self.name:
+			s.append("// %s\n" % self.name)
 		objs = self.state.values()
 		if self.name:
 			s.append("function _RTSC_class_%s() {\n" % (self.name,))
+		# Write out the classes.
 		for obj in objs:
 			if obj.executable:
 				continue
@@ -338,6 +341,7 @@ class Class:
 		if self.name:
 			s.append("}\n")
 			s.append("defaultFillPrototype(_RTSC_class_%s.prototype);\n" % self.name)
+		# Write out the functions.
 		for obj in objs:
 			if not obj.executable:
 				continue
@@ -389,9 +393,10 @@ class Class:
 		elif code[0] == "literal":
 			if code[1].type == "token":
 				tok = code[1].string
+				if tok in self:
+					self[tok] = self[tok].resolve()
+					return ("", self[tok].identifier())
 				return ("", "RTSC_" + tok)
-				self[tok] = self[tok].resolve()
-				return ("", self[tok].identifier())
 			elif code[1].type in ("string", "number"):
 				return ("", code[1].string)
 			assert False
@@ -399,8 +404,8 @@ class Class:
 			extra = preamble = ""
 			var = "var "
 			if isinstance(code[1], list):
+				var = ""
 				if code[1][0] == "getattr":
-					var = ""
 					preamble, lhs = self.write_for(code[1][1])
 					extra = ".RTSC_" + code[1][2].string
 				elif code[1][0] == "indexing":
@@ -408,6 +413,7 @@ class Class:
 					more_preamble, index = self.write_for(code[1][2])
 					preamble += more_preamble
 					extra = "[" + index + "]"
+				else: assert False
 				lhs = BuiltIn(lhs)
 			else:
 				lhs = code[1].string
@@ -573,7 +579,8 @@ with Timer("Time to load:"):
 		print red + "No parsing cache." + normal
 
 with Timer("Time to parse:"):
-	ctx.import_file(sys.argv[1])
+	for path in sys.argv[1:]:
+		ctx.import_file(path)
 	statements = ctx.churn()
 
 #print grey + "Cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))

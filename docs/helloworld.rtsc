@@ -1,0 +1,6 @@
+
+def foo()
+	print("Hello, world!")
+
+global.main = foo
+

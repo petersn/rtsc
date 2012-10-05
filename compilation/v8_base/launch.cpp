@@ -51,8 +51,6 @@ int main(int argc, char* argv[]) {
 	SCOPE(global);
 	FUNC(global, print, print);
 	FUNC(global, _load_c_extension, _load_c_extension);
-//	opengl_init(global);
-//	os_init(global);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.
