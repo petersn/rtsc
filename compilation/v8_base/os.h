@@ -5,7 +5,7 @@
 
 #include "extensions.h"
 
-void os_init(v8::Handle<v8::ObjectTemplate>& global);
+void os_init(v8::Handle<v8::Object>& global);
 
 #endif
 

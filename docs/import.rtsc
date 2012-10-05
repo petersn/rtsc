@@ -1,0 +1,11 @@
+# Import test.
+
+import basic2d
+
+def main()
+	print(basic2d.object)
+	print(basic2d.foo.option)
+	print("Hello, world!")
+
+global.main = main
+

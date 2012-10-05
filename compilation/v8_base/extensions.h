@@ -9,7 +9,7 @@
 using namespace std;
 
 #define SCOPE(name) v8::Handle<v8::ObjectTemplate> name = v8::ObjectTemplate::New()
-#define FUNC(s, n, f) s->Set(v8::String::New("RTSC_" #n), v8::FunctionTemplate::New(f))
+#define FUNC(s, n, f) s->Set(v8::String::New("RTSC_" #n), v8::FunctionTemplate::New(f)->GetFunction())
 #define SET(s, n, x) s->Set(v8::String::New("RTSC_" #n), x)
 #define DEC_FUNC(f) v8::Handle<v8::Value> f(const v8::Arguments& x)
 

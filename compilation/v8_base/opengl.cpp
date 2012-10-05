@@ -330,16 +330,16 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 	return v8::Integer::New(0);
 }
 
-void opengl_init(v8::Handle<v8::ObjectTemplate>& global) {
-	SCOPE(opengl);
-	SET(global, opengl, opengl);
-	FUNC(opengl, launch, opengl_launch);
-	FUNC(opengl, option, opengl_option);
-	FUNC(opengl, quit, opengl_quit);
-	FUNC(opengl, poll, opengl_poll);
-	FUNC(opengl, load_image, opengl_load_image);
-	FUNC(opengl, begin_frame, opengl_begin_frame);
-	FUNC(opengl, end_frame, opengl_end_frame);
-	FUNC(opengl, draw_texture, opengl_draw_texture);
+void opengl_init(v8::Handle<v8::Object>& global) {
+	//SCOPE(opengl);
+	//SET(global, opengl, opengl);
+	FUNC(global, launch, opengl_launch);
+	FUNC(global, option, opengl_option);
+	FUNC(global, quit, opengl_quit);
+	FUNC(global, poll, opengl_poll);
+	FUNC(global, load_image, opengl_load_image);
+	FUNC(global, begin_frame, opengl_begin_frame);
+	FUNC(global, end_frame, opengl_end_frame);
+	FUNC(global, draw_texture, opengl_draw_texture);
 }
 

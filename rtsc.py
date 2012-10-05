@@ -28,8 +28,6 @@ RTSC_main();
 		self.parser = parsing.Parser(self.grammar, self.lexer)
 		self.import_stack = []
 		self.imported = set()
-		self.where = Class(None)
-		self.where["self"] = BuiltIn("self", "this")
 		self.cache_hits = 0
 		self.cache_misses = 0
 		self.parsing_cache = {}
@@ -61,35 +59,37 @@ RTSC_main();
 		code = []
 		while self.import_stack:
 			name = self.import_stack.pop(0)
+			module_name = os.path.split(os.path.splitext(name)[0])[1]
 			self.imported.add(name)
 			mtime = lambda p : os.stat(p).st_mtime
 			for prefix in self.import_search_path:
 				base_path = os.path.join(prefix, name)
+				bytes_path = os.path.splitext(base_path)[0] + ".bytes"
 				statements = None
 				try:
-					time1 = mtime(base_path + ".bytes")
+					time1 = mtime(bytes_path)
 					time2 = 0
 					try:
-						time2 = mtime(base_path + ".rtsc")
+						time2 = mtime(base_path)
 					except OSError:
 						pass
 					if time1 > time2:
-						statements = self.process_bytecode(open(base_path + ".bytes").read())
+						statements = self.process_bytecode(open(bytes_path).read())
 				except OSError:
 					pass
 				if statements == None:
 					try:
-						data = open(base_path + ".rtsc").read()
+						data = open(base_path).read()
 						statements = self.process(data)
 						bytecode = self.produce_bytecode(statements)
-						open(base_path + ".bytes", "w").write(bytecode)
+						open(bytes_path, "w").write(bytecode)
 					except IOError:
 						pass
 				if statements != None:
 					self.scan_for_imports(statements)
 					if code and code[0] == "expr_list":
 						code = code[1:]
-					code = statements + code
+					code.append( (module_name, statements) )
 					break
 			else:
 				raise Exception("Couldn't find source: %r" % name)
@@ -153,7 +153,7 @@ RTSC_main();
 	def scan_for_imports(self, code):
 		for statement in code:
 			if statement[0] == "import":
-				self.import_file(statement[1].string)
+				self.import_file(statement[1].string + ".rtsc")
 
 	def process(self, code):
 		compile_stack = [ ([], ["expr_list"]) ]
@@ -198,9 +198,9 @@ RTSC_main();
 				p = parsings[0]
 				self.parsing_cache[tuple(tokens)] = copy.deepcopy(p)
 			for statement in p[1:]:
-				if statement[0] in ("expr", "standalone", "valued", "declaration", "subclass"):
+				if statement[0] in ("expr", "standalone", "valued", "declaration", "subclass", "auto_call", "expose"):
 					compile_stack[-1][1].append( statement )
-				elif statement[0] in ("function_definition", "loop", "class"):
+				elif statement[0] in ("function_definition", "loop", "class", "auto_func"):
 					# Make a list to contain the code we're going to insert.
 					statement.append( ["expr_list"] )
 					compile_stack[-1][1].append( statement )
@@ -241,8 +241,22 @@ RTSC_main();
 		else:
 			where.code_stack[-1].append(statement)
 
+	def build(self, modules):
+		self.wheres = []
+		for module_name, statement in modules:
+			where = Class(None)
+			self.build_structure(statement, where)
+			self.wheres.append( (module_name, where) )
+
 	def write_js(self):
-		return self.js_header + self.where.write_js() + self.js_footer + "\n"
+		where_code = [self.js_header]
+		for module_name, where in self.wheres:
+			where_code.append("var RTSC_%s = new function() {\n" % module_name)
+			where_code.append(where.write_js())
+			where_code.append("}\n")
+		where_code.append(self.js_footer)
+		where_code.append("\n")
+		return "".join(where_code)
 
 class ForwardsRef:
 	def __init__(self, where, name):
@@ -267,6 +281,8 @@ class Class:
 		self.code_stack = [self.code]
 		self.parent = parent
 		self.state = collections.OrderedDict()
+		# XXX: Reconsider putting this here.
+		self["self"] = BuiltIn("self", "this")
 
 	def __contains__(self, index):
 		if index in self.state:
@@ -295,7 +311,7 @@ class Class:
 
 	def write_js(self):
 		self.inherits = [i.resolve() for i in self.inherits]
-		s = []
+		s = ["// %s\n" % self.name]
 		objs = self.state.values()
 		if self.name:
 			s.append("function _RTSC_class_%s() {\n" % (self.name,))
@@ -303,7 +319,8 @@ class Class:
 			if obj.executable:
 				continue
 			js = obj.write_js()
-			if self.name: js = indent(js)
+			if self.name:
+				js = indent(js)
 			s.append(js)
 		subclassings = []
 		i = 0
@@ -314,10 +331,13 @@ class Class:
 				continue
 			i += 1
 		assert len(subclassings) < 2, "Unfortunately, currently only single inheritance is supported."
-		s.append(indent(self.write_for(self.code, getValue=False)[0]))
+		js = self.write_for(self.code, getValue=False)[0]
+		if self.name:
+			js = indent(js)
+		s.append(js)
 		if self.name:
 			s.append("}\n")
-			s.append("_RTSC_class_%s.prototype.RTSC___init__ = function() {}\n" % self.name)
+			s.append("defaultFillPrototype(_RTSC_class_%s.prototype);\n" % self.name)
 		for obj in objs:
 			if not obj.executable:
 				continue
@@ -331,6 +351,7 @@ class Class:
 			preamble, tag = self.write_for(subclassing[2])
 			s.append(preamble)
 			s.append("_RTSC_class_%s.prototype.__proto__ = %s.secret_class.prototype;\n" % (self.name, tag))
+		s.append("\n")
 		return "".join(s)
 
 	def type_code(self, typ):
@@ -376,8 +397,10 @@ class Class:
 			assert False
 		elif code[0] == "assignment":
 			extra = preamble = ""
+			var = "var "
 			if isinstance(code[1], list):
 				if code[1][0] == "getattr":
+					var = ""
 					preamble, lhs = self.write_for(code[1][1])
 					extra = ".RTSC_" + code[1][2].string
 				elif code[1][0] == "indexing":
@@ -392,8 +415,8 @@ class Class:
 					self[lhs] = Variable(lhs)
 				lhs = self[lhs]
 			rhs = self.write_for(code[-1])
-			fmt = (lhs.identifier(), extra, (code[2].string if len(code) == 4 else ""), rhs[1])
-			return (preamble + rhs[0] + "var %s%s %s= %s;\n" % fmt, lhs.identifier())
+			fmt = (var, lhs.identifier(), extra, (code[2].string if len(code) == 4 else ""), rhs[1])
+			return (preamble + rhs[0] + "%s%s%s %s= %s;\n" % fmt, lhs.identifier())
 		elif code[0] in ("op", "indexing"):
 			lhs = self.write_for(code[1])
 			rhs = self.write_for(code[-1])
@@ -471,6 +494,12 @@ class Class:
 			elif code[1].string == "break":
 				return ("break;\n", "")
 			else: assert False
+		elif code[0] == "auto_call":
+			return ("this.RTSC__autocall_%s(%s);\n" % (code[1].string, ", ".join("%r" % i.string for i in code[2:])), "")
+		elif code[0] == "auto_func":
+			return ("this.RTSC__autofunc_%s(%s);\n" % (code[1].string, ", ".join("%r" % i.string for i in code[2:-1])), "")
+		elif code[0] == "expose":
+			return ("".join("this.RTSC_%s = RTSC_%s;\n" % ((i.string,)*2) for i in code[2:]), "")
 		else:
 			print code
 			assert False
@@ -552,7 +581,7 @@ with Timer("Time to parse:"):
 ctx.save_parsing_cache()
 
 with Timer("Time to compile:"):
-	ctx.build_structure(statements)
+	ctx.build(statements)
 	js = ctx.write_js()
 	import compilation
 	status, binary = compilation.remote_compile(js)

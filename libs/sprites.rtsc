@@ -1,0 +1,7 @@
+
+import standard
+
+class physical
+	subclass point
+	subscribe updateWorld
+

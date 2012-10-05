@@ -26,6 +26,21 @@ Handle<Value> print(const Arguments& x) {
 	return result;
 }
 
+Handle<Value> _load_c_extension(const Arguments& x) {
+	v8::String::AsciiValue arg(x[0]);
+	if (strcmp(*arg, "opengl") == 0) {
+		v8::Handle<v8::Object> scope(x[1]->ToObject());
+		opengl_init(scope);
+	} else if (strcmp(*arg, "os") == 0) {
+		v8::Handle<v8::Object> scope(x[1]->ToObject());
+		os_init(scope);
+	} else {
+		cerr << "Unknown argument to _load_c_extension: " << *arg << endl;
+		return v8::Integer::New(1);
+	}
+	return v8::Integer::New(0);
+}
+
 int main(int argc, char* argv[]) {
 	// Create a stack-allocated handle scope.
 	HandleScope handle_scope;
@@ -35,8 +50,9 @@ int main(int argc, char* argv[]) {
 
 	SCOPE(global);
 	FUNC(global, print, print);
-	opengl_init(global);
-	os_init(global);
+	FUNC(global, _load_c_extension, _load_c_extension);
+//	opengl_init(global);
+//	os_init(global);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.

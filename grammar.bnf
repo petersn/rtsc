@@ -68,6 +68,11 @@ arguments_definition: = argument | argument "spec:symbol:,"~ @@
 function_name: = "type:token" | "type:token" "match:symbol:."~ "type:token"
 function_definition = "spec:reserved:def"~ function_name "spec:symbol:("~ arguments_definition "spec:symbol:)"~ | "def"~ function_name "spec:symbol:("~ "spec:symbol:)"~
 
+auto_unit: = "type:token" | "type:reserved"
+auto_sequence: = auto_unit | auto_unit @@
+auto_func = "match:token:on" auto_sequence
+auto_call = "match:token:property" auto_sequence
+
 loop = "spec:reserved:for" "type:token" "spec:reserved:in"~ expr
 loop = "spec:reserved:while" expr
 loop = "spec:reserved:if" expr
@@ -75,14 +80,16 @@ loop = "spec:reserved:if" expr
 class = "spec:reserved:class"~ "type:token"
 import = "spec:reserved:import"~ "type:token"
 
-standalone = "spec:reserved:break" | "spec:reserved:continue" | "spec:reserved:return"
-valued = "spec:reserved:return" expr | "spec:reserved:subclass" expr
+standalone = "match:reserved:break:continue:return"
+valued = "match:reserved:return:subclass" expr
 
-declaration_unit = "type:token" | "type:token" "spec:symbol:="~ expr
-declaration_sequence: = declaration_unit | declaration_unit "spec:symbol:,"~ @@
-declaration = type declaration_sequence
+# declaration_unit = "type:token" | "type:token" "spec:symbol:="~ expr
+# declaration_sequence: = declaration_unit | declaration_unit "spec:symbol:,"~ @@
+# declaration = type declaration_sequence
 
 token_sequence: = "type:token" | "type:token" "spec:symbol:,"~ @@
 
-main = expr | function_definition | loop | class | import | standalone | valued | declaration
+expose = "spec:reserved:expose" token_sequence
+
+main = expr | function_definition | loop | class | import | standalone | valued | auto_func | auto_call | expose
 

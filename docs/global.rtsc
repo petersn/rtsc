@@ -1,0 +1,11 @@
+# Simple test of closures.
+
+def main()
+	def make_adder(x)
+		def adder(y)
+			return x + y
+	adder5 = make_adder(5)
+	adder7 = make_adder(7)
+	print("adder5(10) =", adder5(10))
+	print("adder7(10) =", adder7(10))
+

@@ -1,0 +1,4 @@
+# RTSC opengl extension
+
+_load_c_extension("opengl", self)
+

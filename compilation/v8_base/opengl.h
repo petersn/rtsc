@@ -5,7 +5,7 @@
 
 #include "extensions.h"
 
-void opengl_init(v8::Handle<v8::ObjectTemplate>& global);
+void opengl_init(v8::Handle<v8::Object>& global);
 
 #endif
 

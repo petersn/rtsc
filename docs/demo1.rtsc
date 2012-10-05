@@ -1,0 +1,30 @@
+# Demo of simple RTSC game.
+
+import basic2d
+
+basic2d.window_size = [640, 480]
+
+class Wall
+	subclass basic2d.object
+	self.img = GetImage
+	property collision solid
+
+class FireWall
+	subclass Wall
+	damage = 10
+
+class Player
+	subclass basic2d.object
+	img = GetImage
+	on collision with solid
+		if other.hasType(Wall)
+			self.momentum *= -1
+	on collision with damaging
+		self.send("damage", self, 10)
+		self.hp -= other.damage
+	on step
+		if self.hp <= 0
+			self.destroy()
+
+main = basic2d.main
+
