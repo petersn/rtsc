@@ -1,5 +1,6 @@
 // Supporting standard library.
 
+RTSC_global = this;
 RTSC_true = true;
 RTSC_false = false;
 

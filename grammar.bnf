@@ -76,14 +76,13 @@ class = "spec:reserved:class"~ "type:token"
 import = "spec:reserved:import"~ "type:token"
 
 standalone = "spec:reserved:break" | "spec:reserved:continue" | "spec:reserved:return"
-valued = "spec:reserved:return" expr
+valued = "spec:reserved:return" expr | "spec:reserved:subclass" expr
 
 declaration_unit = "type:token" | "type:token" "spec:symbol:="~ expr
 declaration_sequence: = declaration_unit | declaration_unit "spec:symbol:,"~ @@
 declaration = type declaration_sequence
 
 token_sequence: = "type:token" | "type:token" "spec:symbol:,"~ @@
-subclass = "spec:reserved:subclass"~ token_sequence
 
-main = expr | function_definition | loop | class | subclass | import | standalone | valued | declaration
+main = expr | function_definition | loop | class | import | standalone | valued | declaration
 

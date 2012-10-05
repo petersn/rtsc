@@ -1,6 +1,7 @@
+#! /usr/bin/python
 # Main compiler!
 
-import sys, os, struct, time, pprint, copy
+import sys, os, struct, time, pprint, copy, collections
 import parsing
 
 normal = "\x1B\x5B\x30\x6D"
@@ -265,7 +266,7 @@ class Class:
 		self.code = ["expr_list"]
 		self.code_stack = [self.code]
 		self.parent = parent
-		self.state = {}
+		self.state = collections.OrderedDict()
 
 	def __contains__(self, index):
 		if index in self.state:
@@ -304,6 +305,15 @@ class Class:
 			js = obj.write_js()
 			if self.name: js = indent(js)
 			s.append(js)
+		subclassings = []
+		i = 0
+		for stmt in self.code[:]:
+			if stmt[0] == "valued" and stmt[1].string == "subclass":
+				subclassings.append(stmt)
+				self.code.pop(i)
+				continue
+			i += 1
+		assert len(subclassings) < 2, "Unfortunately, currently only single inheritance is supported."
 		s.append(indent(self.write_for(self.code, getValue=False)[0]))
 		if self.name:
 			s.append("}\n")
@@ -315,7 +325,12 @@ class Class:
 			if self.name:
 				s.append("_RTSC_class_%s.prototype.%s = %s;\n" % (self.name, obj.identifier(), obj.identifier()))
 		if self.name:
-			s.append("function %s() {\n\tobj = new _RTSC_class_%s();\n\tobj.RTSC___init__.apply(obj, arguments);\n\treturn obj;\n}\n" % (self.identifier(), self.name))
+			s.append("function %s() {\n\tobj = new _RTSC_class_%s();\n\tobj.RTSC___init__.apply(obj, arguments);\n\treturn obj;\n}\n" \
+				"%s.secret_class = _RTSC_class_%s;\n" % (self.identifier(), self.name, self.identifier(), self.name))
+		for subclassing in subclassings:
+			preamble, tag = self.write_for(subclassing[2])
+			s.append(preamble)
+			s.append("_RTSC_class_%s.prototype.__proto__ = %s.secret_class.prototype;\n" % (self.name, tag))
 		return "".join(s)
 
 	def type_code(self, typ):
@@ -345,7 +360,7 @@ class Class:
 			fmt = (func[1], ", ".join(i[1] for i in args))
 			if getValue:
 				tag = unique()
-				return (preamble + "%s = %s(%s);\n" % ((tag,)+fmt), tag)
+				return (preamble + "var %s = %s(%s);\n" % ((tag,)+fmt), tag)
 			else:
 				return (preamble + "%s(%s);\n" % fmt, "")
 		elif code[0] == "float":
@@ -378,7 +393,7 @@ class Class:
 				lhs = self[lhs]
 			rhs = self.write_for(code[-1])
 			fmt = (lhs.identifier(), extra, (code[2].string if len(code) == 4 else ""), rhs[1])
-			return (preamble + rhs[0] + "%s%s %s= %s;\n" % fmt, lhs.identifier())
+			return (preamble + rhs[0] + "var %s%s %s= %s;\n" % fmt, lhs.identifier())
 		elif code[0] in ("op", "indexing"):
 			lhs = self.write_for(code[1])
 			rhs = self.write_for(code[-1])
@@ -388,14 +403,14 @@ class Class:
 				op, post = "[]"
 			tag = unique()
 			if op == "^":
-				return (lhs[0] + rhs[0] + "%s = Math.pow(%s, %s);\n" % (tag, lhs[1], rhs[1]), tag)
+				return (lhs[0] + rhs[0] + "var %s = Math.pow(%s, %s);\n" % (tag, lhs[1], rhs[1]), tag)
 			else:
 				op = op.replace("and", "&&").replace("or", "||")
-				return (lhs[0] + rhs[0] + "%s = %s %s %s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
+				return (lhs[0] + rhs[0] + "var %s = %s %s %s%s;\n" % (tag, lhs[1], op, rhs[1], post), tag)
 		elif code[0] == "unop":
 			rhs = self.write_for(code[-1])
 			tag = unique()
-			return (rhs[0] + "%s = %s%s;\n" % (tag, code[1].string, rhs[1]), tag)
+			return (rhs[0] + "var %s = %s%s;\n" % (tag, code[1].string, rhs[1]), tag)
 		elif code[0] == "list":
 			args = map(self.write_for, code[1:])
 			return ("".join(i[0] for i in args), "[" + ", ".join(i[1] for i in args) + "]")
@@ -428,7 +443,7 @@ class Class:
 			if len(code) == 2:
 				lhs = self.write_for(code[1])
 				tag = unique()
-				return (lhs[0] + "%s = range(0, %s);\n" % (tag, lhs[1]), tag)
+				return (lhs[0] + "var %s = range(0, %s);\n" % (tag, lhs[1]), tag)
 		elif code[0] == "list_comp":
 			itr = self.write_for(code[3])
 			lhs = code[2].string
@@ -436,11 +451,11 @@ class Class:
 			tag = unique()
 			expr = self.write_for(code[1])
 			fmt = (tag, lhs.identifier(), itr[1], indent(expr[0]), tag, expr[1])
-			return (itr[0] + "%s = [];\nfor (%s in %s) {\n%s\t%s.push(%s);\n}\n" % fmt, tag)
+			return (itr[0] + "var %s = [];\nfor (%s in %s) {\n%s\t%s.push(%s);\n}\n" % fmt, tag)
 		elif code[0] == "lambda":
 			tag = unique()
 			expr = self.write_for(code[-1])
-			return ("%s = function(%s) {\n%s\treturn %s;\n}\n" % (tag, ", ".join("RTSC_" + i[1].string for i in code[1:-1]), indent(expr[0]), expr[1]), tag)
+			return ("var %s = function(%s) {\n%s\treturn %s;\n}\n" % (tag, ", ".join("RTSC_" + i[1].string for i in code[1:-1]), indent(expr[0]), expr[1]), tag)
 		elif code[0] == "getattr":
 			expr = self.write_for(code[1])
 			return (expr[0], expr[1]+".RTSC_"+code[2].string)
@@ -448,6 +463,8 @@ class Class:
 			if code[1].string == "return":
 				lhs = self.write_for(code[2])
 				return (lhs[0] + "return %s;\n" % (lhs[1],), "")
+			elif code[1].string == "subclass":
+				assert False, "Cannot subclass inside code structures."
 		elif code[0] == "standalone":
 			if code[1].string == "continue":
 				return ("continue;\n", "")

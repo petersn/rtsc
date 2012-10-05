@@ -34,6 +34,8 @@ def mainloop()
 textures = {}
 
 def main()
+	x = Foo()
+	x.foo()
 	opengl.launch(800, 703)
 	opengl.option("cursor-visible", false)
 	textures["grass"] = opengl.load_image("../xs/data/Grass.bmp")
