@@ -1,6 +1,6 @@
 # Simple example.
 
-import opengl
+import opengl, os
 
 pos = [0, 0]
 held = {}

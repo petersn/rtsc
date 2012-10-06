@@ -1,5 +1,12 @@
 
+class Point
+	def get_x()
+		return self.x
+
 def foo()
+	p = Point()
+	p.x = 10
+	print("p.get_x() ->", p.get_x())
 	print("Hello, world!")
 
 global.main = foo

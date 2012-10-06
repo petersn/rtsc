@@ -78,7 +78,7 @@ loop = "spec:reserved:while" expr
 loop = "spec:reserved:if" expr
 
 class = "spec:reserved:class"~ "type:token"
-import = "spec:reserved:import"~ "type:token"
+import = "spec:reserved:import"~ token_sequence
 
 standalone = "match:reserved:break:continue:return"
 valued = "match:reserved:return:subclass" expr

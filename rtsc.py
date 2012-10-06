@@ -153,7 +153,8 @@ RTSC_main();
 	def scan_for_imports(self, code):
 		for statement in code:
 			if statement[0] == "import":
-				self.import_file(statement[1].string + ".rtsc")
+				for sub in statement[1:]:
+					self.import_file(sub.string + ".rtsc")
 
 	def process(self, code):
 		compile_stack = [ ([], ["expr_list"]) ]
