@@ -1,0 +1,9 @@
+[Gedit Plugin]
+Loader=python
+Module=rtsc
+IAge=2
+Name=RTSC
+Description=Coding and compiling for RTSC
+Authors=Peter Schmidt-Nielsen <snp@mit.edu>
+Copyright=Public domain! (The *freest* license.)
+Website=http://ubuntu.cba.mit.edu/rtsc

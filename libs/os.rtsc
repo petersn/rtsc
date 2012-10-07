@@ -1,0 +1,4 @@
+# RTSC os extension.
+
+_load_c_extension("os", self)
+
