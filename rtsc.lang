@@ -74,10 +74,6 @@
           ( (\d+|(\d+)?\.\d+|\d+\.)[eE][+-]?\d+ )
         </define-regex>
 
-        <context id="complex" style-ref="complex">
-          <match>(?&lt;![\w\.])(\%{float}|\d+)[jJ]\b</match>
-        </context>
-
         <context id="float" style-ref="floating-point">
           <match>(?&lt;![\w\.])\%{float}(?![\w\.])</match>
         </context>

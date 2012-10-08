@@ -65,6 +65,15 @@ def remote_compile(code, timeout=None):
 	datum = datum.decode("base64")
 	return val, datum
 
+def check_output(*args, **kwargs):
+	sub = subprocess.Popen(*args, stdout=subprocess.PIPE, **kwargs)
+	stdout, _ = sub.communicate()
+	if sub.returncode != 0:
+		exception = subprocess.CalledProcessError(sub.returncode, args[0])
+		exception.output = stdout
+		raise exception
+	return stdout
+
 header_write_time = -float("inf")
 def local_compile(code):
 	global standard_header, header_write_time
@@ -78,10 +87,10 @@ def local_compile(code):
 	write_fd.write(code)
 	write_fd.close()
 	try:
-		subprocess.check_output(["objcopy", "--input", "binary", "--output", "elf64-x86-64",
+		check_output(["objcopy", "--input", "binary", "--output", "elf64-x86-64",
 			"--binary-architecture", "i386:x86-64", "code.js", "javascript.o"],
 			stderr=subprocess.STDOUT, cwd="v8_base")
-		subprocess.check_output(["g++", "-o", "main", "launch.o", "opengl.o", "os.o", "javascript.o",
+		check_output(["g++", "-o", "main", "launch.o", "opengl.o", "os.o", "javascript.o",
 			"libs64/libv8_base.a", "libs64/libv8_snapshot.a", "-lpthread", "-lGLU", "-lSDL"],
 			stderr=subprocess.STDOUT, cwd="v8_base")
 		data = open("v8_base/main").read()

@@ -5,6 +5,7 @@ from gettext import gettext as _
 
 import gtk
 import gedit
+import rtsc
 
 ui_str = """<ui>
   <menubar name="MenuBar">
@@ -108,7 +109,9 @@ class RTSCWindowHelper:
 		config = self.parse_project()
 		if not config: return
 		main_file = config.get("config", "main_file")
-		print main_file
+		ctx = rtsc.Compiler()
+		ctx.import_file(main_file)
+		ctx.churn()
 
 	def on_rtsc_compile(self, action):
 		for doc in self._window.get_documents():

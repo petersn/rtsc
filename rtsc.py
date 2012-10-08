@@ -15,8 +15,8 @@ teal   = "\x1B\x5B\x30\x31\x3B\x33\x36\x6D"
 
 class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
-	grammar = open("grammar.bnf").read()
-	lexer = open("lexer.rxl").read()
+	grammar = open("/home/bent/projects/rtsc/grammar.bnf").read()
+	lexer = open("/home/bent/projects/rtsc/lexer.rxl").read()
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
@@ -572,39 +572,40 @@ class Timer:
 		end = time.time()
 		print green+self.msg+normal, "%.3fs" % (end - self.start)
 
-with Timer("Time to load:"):
-	ctx = Compiler()
-	try:
-		ctx.load_parsing_cache()
-	except IOError:
-		print red + "No parsing cache." + normal
+if __name__ == "__main__":
+	with Timer("Time to load:"):
+		ctx = Compiler()
+		try:
+			ctx.load_parsing_cache()
+		except IOError:
+			print red + "No parsing cache." + normal
 
-with Timer("Time to parse:"):
-	for path in sys.argv[1:]:
-		ctx.import_file(path)
-	statements = ctx.churn()
+	with Timer("Time to parse:"):
+		for path in sys.argv[1:]:
+			ctx.import_file(path)
+		statements = ctx.churn()
 
-#print grey + "Cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))
+	#print grey + "Cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))
 
-ctx.save_parsing_cache()
+	ctx.save_parsing_cache()
 
-with Timer("Time to compile:"):
-	ctx.build(statements)
-	js = ctx.write_js()
-	import compilation
-	status, binary = compilation.remote_compile(js)
+	with Timer("Time to compile:"):
+		ctx.build(statements)
+		js = ctx.write_js()
+		import compilation
+		status, binary = compilation.remote_compile(js)
 
-if status == "g":
-	fd = open("Main", "w")
-	fd.write(binary)
-	fd.close()
-	os.chmod("Main", 0755)
-elif status == "e":
-	print red + "Error:" + normal
-	print binary.strip()
-	exit(1)
-elif status == "f":
-	print red + "Remote compilation server not running." + normal
-else:
-	assert False
+	if status == "g":
+		fd = open("Main", "w")
+		fd.write(binary)
+		fd.close()
+		os.chmod("Main", 0755)
+	elif status == "e":
+		print red + "Error:" + normal
+		print binary.strip()
+		exit(1)
+	elif status == "f":
+		print red + "Remote compilation server not running." + normal
+	else:
+		assert False
 
