@@ -13,16 +13,19 @@ blue   = "\x1B\x5B\x30\x31\x3B\x33\x34\x6D"
 purple = "\x1B\x5B\x30\x31\x3B\x33\x35\x6D"
 teal   = "\x1B\x5B\x30\x31\x3B\x33\x36\x6D"
 
+class CompilationException(Exception):
+	pass
+
 class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
-	grammar = open("/home/bent/projects/rtsc/grammar.bnf").read()
-	lexer = open("/home/bent/projects/rtsc/lexer.rxl").read()
+	grammar = open("/home/peter/proj/rtsc/grammar.bnf").read()
+	lexer = open("/home/peter/proj/rtsc/lexer.rxl").read()
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
 RTSC_main();
 """
-	import_search_path = [".", "libs"]
+	import_search_path = [".", "/home/peter/proj/rtsc/libs"]
 
 	def __init__(self):
 		self.parser = parsing.Parser(self.grammar, self.lexer)
@@ -92,7 +95,7 @@ RTSC_main();
 					code.insert(0, (module_name, statements))
 					break
 			else:
-				raise Exception("Couldn't find source: %r" % name)
+				raise CompilationException("Couldn't find source: %r" % name)
 		return code
 
 	def produce_bytecode(self, statements):
@@ -209,7 +212,7 @@ RTSC_main();
 					starting_block = True
 				elif statement[0] == "import":
 					if len(compile_stack) != 1:
-						raise Exception("Non-top level imports not allowed.")
+						raise CompilationException("Non-top level imports not allowed.")
 					compile_stack[-1][1].append( statement )
 				else:
 					assert False, "Unknown compile-time statement: %r" % statement
