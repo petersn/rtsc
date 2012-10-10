@@ -31,6 +31,7 @@ ui_str = """
 			</menu>
 			<menu name="RTSCHelpersMenu" action="RTSCHelpers">
 				<menuitem name="RTSC_SyntaxCheck" action="RTSC_SyntaxCheck"/>
+				<menuitem name="RTSC_OpenProjectFiles" action="RTSC_OpenProjectFiles"/>
 				<menuitem name="RTSC_CheckForUpdates" action="RTSC_CheckForUpdates"/>
 				<menuitem name="RTSC_Version" action="RTSC_Version"/>
 			</menu>
@@ -47,12 +48,15 @@ class Timer:
 		obj.write(self.msg + "%.3fs" % (end - self.start) + "\n")
 
 class RTSCWindowHelper:
+	versioning_file_ignore_filter = ["versioning", "Main", "*.bytes"]
+
 	def __init__(self, plugin, window):
 		self._window = window
 		self._plugin = plugin
 
 		# Insert menu items
 		self._insert_menu()
+		self.diff_console = None
 
 	def deactivate(self):
 		# Remove any installed menu items
@@ -87,6 +91,7 @@ class RTSCWindowHelper:
 		add(("RTSC_ViewHistory", None, _("Project History"), None, _("View project history"), self.on_view_history))
 
 		add(("RTSC_SyntaxCheck", None, _("Check Syntax"), None, _("Check project for syntax errors"), self.on_rtsc_check))
+		add(("RTSC_OpenProjectFiles", None, _("Open Project Files"), None, _("Open all the files associated with this project"), self.open_project_files))
 		add(("RTSC_CheckForUpdates", None, _("Network Updates"), None, _("Check for updates to RTSC or this plugin over the network"), self.on_rtsc_update))
 		add(("RTSC_Version", None, _("Version"), None, _("Tells you some version crap"), self.on_version))
 
@@ -121,6 +126,10 @@ class RTSCWindowHelper:
 		# Remove the bottom panel console
 		bottom = self._window.get_bottom_panel()
 		bottom.remove_item(self.console)
+
+		if self.diff_console != None:
+			bottom = self._window.get_bottom_panel()
+			bottom.remove_item(self.diff_console)
 
 	def update_ui(self):
 		self._action_group.set_sensitive(self._window.get_active_document() != None)
@@ -328,7 +337,7 @@ main_file = main.rtsc
 		return result
 
 	def on_diff(self, action=None, just_check=False):
-		import difflib, filecmp
+		import difflib, filecmp, glob
 		result = self.guarantee_versioning()
 		most_recent = result["last_version_path"]
 		if most_recent == None:
@@ -337,7 +346,7 @@ main_file = main.rtsc
 				return result
 			self.error_dialog("No previous version to show differences from.")
 			return
-		dirdiff = filecmp.dircmp(".", result["last_version_path"], ["versioning"])
+		dirdiff = filecmp.dircmp(".", result["last_version_path"], self.versioning_file_ignore_filter + glob.glob("*.bytes"))
 		if just_check:
 			result["does_differ"] = bool(dirdiff.diff_files or dirdiff.left_only or dirdiff.right_only)
 			return result
@@ -349,18 +358,22 @@ main_file = main.rtsc
 		for path in dirdiff.diff_files:
 			a_lines, b_lines = open(path).readlines(), open(os.path.join(result["last_version_path"], path)).readlines()
 			text += "".join(difflib.unified_diff(b_lines, a_lines, fromfile="Previous %s" % path, tofile="Current  %s" % path))
-		tab = self._window.create_tab(True)
-		doc = tab.get_document()
-		doc.set_text(text)
+		if self.diff_console == None:
+			#bottom = self._window.get_bottom_panel()
+			#bottom.remove_item(self.diff_console)
+			self.diff_console = RTSCConsole()
+			bottom = self._window.get_bottom_panel()
+			bottom.add_item(self.diff_console, _('Differences'), gtk.STOCK_EXECUTE)
+		self.diff_console.buf.set_text(text)
 
 	def on_save_commit(self, action=None):
 		import shutil
 		result = self.on_diff(just_check=True)
-		if not result["does_differ"]:
+		if result["does_differ"] == False:
 			self.error_dialog("No differences to commit.")
 			return
 		new_version = os.path.join("versioning", "v%06i" % (result["max_version_num"]+1))
-		shutil.copytree(".", new_version, ignore=shutil.ignore_patterns("versioning", "Main"))
+		shutil.copytree(".", new_version, ignore=shutil.ignore_patterns("*.bytes", *self.versioning_file_ignore_filter))
 
 	def on_view_history(self, action=None):
 		pass
