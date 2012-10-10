@@ -4,6 +4,8 @@
 import sys, os, struct, time, pprint, copy, collections
 import parsing
 
+version = (0, 1)
+
 normal = "\x1B\x5B\x30\x6D"
 grey   = "\x1B\x5B\x30\x31\x3B\x33\x30\x6D"
 red    = "\x1B\x5B\x30\x31\x3B\x33\x31\x6D"
@@ -23,7 +25,7 @@ class Compiler:
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
-RTSC_main();
+//RTSC_main();
 """
 	import_search_path = ["/home/peter/proj/rtsc/libs"]
 

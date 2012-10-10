@@ -9,22 +9,30 @@ import pango
 from rtsc import rtsc
 from rtsc import compilation
 
+plugin_version = (0, 1)
+
 ui_str = """
 <ui>
 	<menubar name="MenuBar">
 		<menu name="FileMenu" action="File">
 			<placeholder name="FileOps_2">
-				<menuitem name="RTSC_Helper_NewProject" action="RTSC_Helper_NewProject"/>
-				<menuitem name="RTSC_Helper_OpenProject" action="RTSC_Helper_OpenProject"/>
+				<menuitem name="RTSC_NewProject" action="RTSC_NewProject"/>
+				<menuitem name="RTSC_OpenProject" action="RTSC_OpenProject"/>
 			</placeholder>
 		</menu>
 		<menu name="RTSCMenu" action="RTSC">
-			<menuitem name="RTSC_Syntax_Check" action="RTSC_Syntax_Check"/>
 			<menuitem name="RTSC_Compile" action="RTSC_Compile"/>
 			<menuitem name="RTSC_Run" action="RTSC_Run"/>
 			<separator/>
+			<menu name="RTSCVersioningMenu" action="RTSCVersioning">
+				<menuitem name="RTSC_SaveCommit" action="RTSC_SaveCommit"/>
+				<menuitem name="RTSC_Diff" action="RTSC_Diff"/>
+				<menuitem name="RTSC_ViewHistory" action="RTSC_ViewHistory"/>
+			</menu>
 			<menu name="RTSCHelpersMenu" action="RTSCHelpers">
-				
+				<menuitem name="RTSC_SyntaxCheck" action="RTSC_SyntaxCheck"/>
+				<menuitem name="RTSC_CheckForUpdates" action="RTSC_CheckForUpdates"/>
+				<menuitem name="RTSC_Version" action="RTSC_Version"/>
 			</menu>
 		</menu>
 	</menubar>
@@ -65,15 +73,22 @@ class RTSCWindowHelper:
 
 		# Add the menu names.
 		add(('RTSC', None, _('RTSC'), None, _("RTSC Tools"), None))
-		add(('RTSCHelpers', None, _('RTSC Helpers'), None, _("RTSC code-writing helpers"), None))
+		add(('RTSCHelpers', None, _('Helpers'), None, _("RTSC code-writing helpers"), None))
+		add(('RTSCVersioning', None, _('Versioning'), None, _("Simple version control"), None))
 
 		# Add various commands.
-		add(("RTSC_Syntax_Check", None, _("Check RTSC"), None, _("Check RTSC project for syntax errors"), self.on_rtsc_check))
-		add(("RTSC_Compile", None, _("Compile RTSC"), None, _("Force recompile the current project"), self.on_rtsc_compile))
-		add(("RTSC_Run", None, _("Run RTSC"), None, _("Compile (if needed) and run the current project"), self.on_rtsc_run))
+		add(("RTSC_NewProject", None, _("New RTSC Project"), None, _("Make a new project"), self.on_new_project))
+		add(("RTSC_OpenProject", None, _("Open RTSC Project"), None, _("Open an existing project"), self.on_open_project))
+		add(("RTSC_Compile", None, _("Compile"), None, _("Force recompile the current project"), self.on_rtsc_compile))
+		add(("RTSC_Run", None, _("Run"), None, _("Compile (if needed) and run the current project"), self.on_rtsc_run))
 
-		add(("RTSC_Helper_NewProject", None, _("New RTSC Project"), None, _("Make a new project"), self.on_new_project))
-		add(("RTSC_Helper_OpenProject", None, _("Open RTSC Project"), None, _("Open an existing project"), self.on_open_project))
+		add(("RTSC_SaveCommit", None, _("Save Commit"), None, _("Commit a new version of the project"), self.on_save_commit))
+		add(("RTSC_Diff", None, _("Differences"), None, _("Differences from previous version"), self.on_diff))
+		add(("RTSC_ViewHistory", None, _("Project History"), None, _("View project history"), self.on_view_history))
+
+		add(("RTSC_SyntaxCheck", None, _("Check Syntax"), None, _("Check project for syntax errors"), self.on_rtsc_check))
+		add(("RTSC_CheckForUpdates", None, _("Network Updates"), None, _("Check for updates to RTSC or this plugin over the network"), self.on_rtsc_update))
+		add(("RTSC_Version", None, _("Version"), None, _("Tells you some version crap"), self.on_version))
 
 		# Insert the action group
 		manager.insert_action_group(self._action_group, -1)
@@ -87,6 +102,8 @@ class RTSCWindowHelper:
 		bottom.add_item(self.console, _('Compilation Console'), gtk.STOCK_EXECUTE)
 
 		manager.ensure_update()
+
+		self._window.connect("tab-added", self.tab_added_cb)
 
 	def _remove_menu(self):
 		# Get the GtkUIManager
@@ -108,8 +125,23 @@ class RTSCWindowHelper:
 	def update_ui(self):
 		self._action_group.set_sensitive(self._window.get_active_document() != None)
 
+	def tab_added_cb(self, window, tab):
+		doc = tab.get_document()
+		doc.connect("loaded", self.check_if_doc_should_launch_more, tab.get_view())
+
+	def check_if_doc_should_launch_more(self, doc, *args):
+		# Don't open more unless we have nothing else open.
+		# This is a heuristic for "we double clicked on the project".
+		if len(self._window.get_documents()) == 1 and os.path.splitext(doc.get_short_name_for_display())[1] == ".rtsc-proj":
+			self.open_project_files()
+
 	def error_dialog(self, msg):
 		dlg = gtk.MessageDialog(self._window, gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_ERROR, gtk.BUTTONS_CLOSE, msg)
+		dlg.run()
+		dlg.destroy()
+
+	def success_dialog(self, msg):
+		dlg = gtk.MessageDialog(self._window, gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, msg)
 		dlg.run()
 		dlg.destroy()
 
@@ -147,9 +179,9 @@ class RTSCWindowHelper:
 		return result
 
 	def on_rtsc_check(self, action=None):
-		pass
+		self.on_rtsc_compile(go_all_the_way=False)
 
-	def on_rtsc_compile(self, action=None):
+	def on_rtsc_compile(self, action=None, go_all_the_way=True):
 		# Start by clearing the console.
 		self.console.buf.set_text("")
 		start = time.time()
@@ -176,6 +208,9 @@ class RTSCWindowHelper:
 			return
 		end = time.time()
 		self.console.write("done: %.2fs\n" % (end-start))
+		if not go_all_the_way:
+			self.success_dialog("All syntax good.")
+			return True
 		start = time.time()
 		self.console.write("Compiling... ")
 		try:
@@ -270,6 +305,65 @@ main_file = main.rtsc
 		main_source = result["config"].get("config", "main_file")
 		os.chdir(result["dir"])
 		self._window.create_tab_from_uri("file://" + os.path.abspath(main_source), None, 0, False, False)
+
+	def on_rtsc_update(self, action=None):
+		self.success_message("Already updated to the most recent version.")
+
+	def on_version(self, action=None):
+		msg = "Originally the \"RTS Compiler\"\nRTSC version: %i.%i\nGedit plugin version: %i.%i"
+		self.success_dialog(msg % (plugin_version + rtsc.version))
+
+	def guarantee_versioning(self):
+		result = self.parse_project()
+		if not result:
+			return
+		os.chdir(result["dir"])
+		try:
+			os.mkdir("versioning")
+		except OSError, e:
+			pass
+		vers = os.listdir("versioning")
+		result["max_version_num"] = int(max(vers)[1:]) if vers else 0
+		result["last_version_path"] = os.path.join("versioning", max(vers)) if vers else None
+		return result
+
+	def on_diff(self, action=None, just_check=False):
+		import difflib, filecmp
+		result = self.guarantee_versioning()
+		most_recent = result["last_version_path"]
+		if most_recent == None:
+			if just_check:
+				result["does_differ"] = None
+				return result
+			self.error_dialog("No previous version to show differences from.")
+			return
+		dirdiff = filecmp.dircmp(".", result["last_version_path"], ["versioning"])
+		if just_check:
+			result["does_differ"] = bool(dirdiff.diff_files or dirdiff.left_only or dirdiff.right_only)
+			return result
+		text = ""
+		for path in dirdiff.left_only:
+			text += "Deleted: " + path + "\n"
+		for path in dirdiff.right_only:
+			text += "New file:" + path + "\n"
+		for path in dirdiff.diff_files:
+			a_lines, b_lines = open(path).readlines(), open(os.path.join(result["last_version_path"], path)).readlines()
+			text += "".join(difflib.unified_diff(b_lines, a_lines, fromfile="Previous %s" % path, tofile="Current  %s" % path))
+		tab = self._window.create_tab(True)
+		doc = tab.get_document()
+		doc.set_text(text)
+
+	def on_save_commit(self, action=None):
+		import shutil
+		result = self.on_diff(just_check=True)
+		if not result["does_differ"]:
+			self.error_dialog("No differences to commit.")
+			return
+		new_version = os.path.join("versioning", "v%06i" % (result["max_version_num"]+1))
+		shutil.copytree(".", new_version, ignore=shutil.ignore_patterns("versioning", "Main"))
+
+	def on_view_history(self, action=None):
+		pass
 
 class RTSCConsole(gtk.ScrolledWindow):
 
