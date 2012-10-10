@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-import os, ConfigParser, StringIO, subprocess, time
+import os, ConfigParser, StringIO, subprocess, time, socket
 from gettext import gettext as _
 
 import gtk
@@ -9,16 +9,25 @@ import pango
 from rtsc import rtsc
 from rtsc import compilation
 
-ui_str = """<ui>
-  <menubar name="MenuBar">
-	<menu name="ToolsMenu" action="Tools">
-	  <placeholder name="ToolsOps_2">
-	  	<menuitem name="RTSC_Syntax_Check" action="RTSC_Syntax_Check"/>
-		<menuitem name="RTSC_Compile" action="RTSC_Compile"/>
-		<menuitem name="RTSC_Run" action="RTSC_Run"/>
-	  </placeholder>
-	</menu>
-  </menubar>
+ui_str = """
+<ui>
+	<menubar name="MenuBar">
+		<menu name="FileMenu" action="File">
+			<placeholder name="FileOps_2">
+				<menuitem name="RTSC_Helper_NewProject" action="RTSC_Helper_NewProject"/>
+				<menuitem name="RTSC_Helper_OpenProject" action="RTSC_Helper_OpenProject"/>
+			</placeholder>
+		</menu>
+		<menu name="RTSCMenu" action="RTSC">
+			<menuitem name="RTSC_Syntax_Check" action="RTSC_Syntax_Check"/>
+			<menuitem name="RTSC_Compile" action="RTSC_Compile"/>
+			<menuitem name="RTSC_Run" action="RTSC_Run"/>
+			<separator/>
+			<menu name="RTSCHelpersMenu" action="RTSCHelpers">
+				
+			</menu>
+		</menu>
+	</menubar>
 </ui>
 """
 
@@ -51,15 +60,20 @@ class RTSCWindowHelper:
 
 		# Create a new action group
 		self._action_group = gtk.ActionGroup("RTSCPluginActions")
-		self._action_group.add_actions([("RTSC_Syntax_Check", None, _("Check RTSC"),
-										 None, _("Check RTSC project for syntax errors"),
-										 self.on_rtsc_check)])
-		self._action_group.add_actions([("RTSC_Compile", None, _("Compile RTSC"),
-										 None, _("Force recompile the current project"),
-										 self.on_rtsc_compile)])
-		self._action_group.add_actions([("RTSC_Run", None, _("Run RTSC"),
-										 None, _("Compile (if needed) and run the current project"),
-										 self.on_rtsc_run)])
+		self._action_group.set_translation_domain('gedit')
+		add = lambda x : self._action_group.add_actions([x])
+
+		# Add the menu names.
+		add(('RTSC', None, _('RTSC'), None, _("RTSC Tools"), None))
+		add(('RTSCHelpers', None, _('RTSC Helpers'), None, _("RTSC code-writing helpers"), None))
+
+		# Add various commands.
+		add(("RTSC_Syntax_Check", None, _("Check RTSC"), None, _("Check RTSC project for syntax errors"), self.on_rtsc_check))
+		add(("RTSC_Compile", None, _("Compile RTSC"), None, _("Force recompile the current project"), self.on_rtsc_compile))
+		add(("RTSC_Run", None, _("Run RTSC"), None, _("Compile (if needed) and run the current project"), self.on_rtsc_run))
+
+		add(("RTSC_Helper_NewProject", None, _("New RTSC Project"), None, _("Make a new project"), self.on_new_project))
+		add(("RTSC_Helper_OpenProject", None, _("Open RTSC Project"), None, _("Open an existing project"), self.on_open_project))
 
 		# Insert the action group
 		manager.insert_action_group(self._action_group, -1)
@@ -71,6 +85,8 @@ class RTSCWindowHelper:
 		self.console = RTSCConsole()
 		bottom = self._window.get_bottom_panel()
 		bottom.add_item(self.console, _('Compilation Console'), gtk.STOCK_EXECUTE)
+
+		manager.ensure_update()
 
 	def _remove_menu(self):
 		# Get the GtkUIManager
@@ -106,7 +122,7 @@ class RTSCWindowHelper:
 			msg = ["You have %i RTSC projects open. You must have exactly one to perform this action." % len(candidates),
 				"You must have an RTSC project open to perform this action."][len(candidates) == 0]
 			self.error_dialog(msg)
-			return None
+			return
 		return candidates[0]
 
 	def get_text_from_doc(self, doc):
@@ -114,17 +130,21 @@ class RTSCWindowHelper:
 
 	def parse_project(self):
 		doc = self.get_rtsc_main_project()
+		if doc == None:
+			return
 		text = self.get_text_from_doc(doc)
 		parser = ConfigParser.SafeConfigParser()
 		parser.readfp(StringIO.StringIO(text))
 		# Sanity check!
 		if not parser.has_section("config"):
-			self.error_dialog("Project file %s has no section [config]\nConsider add the line:\n\n[config]" % doc.get_short_name_for_display())
-			return None
+			self.error_dialog("Project file %s has no section [config]\nConsider adding the line:\n\n[config]" % doc.get_short_name_for_display())
+			return
 		if not parser.has_option("config", "main_file"):
 			self.error_dialog("Project file %s's [config] section has no main_file option." % doc.get_short_name_for_display())
-			return None
-		return parser
+			return
+		result = { "doc" : doc, "config" : parser }
+		result["dir"] = os.path.realpath(os.path.split(doc.get_uri_for_display())[0])
+		return result
 
 	def on_rtsc_check(self, action=None):
 		pass
@@ -134,16 +154,17 @@ class RTSCWindowHelper:
 		self.console.buf.set_text("")
 		start = time.time()
 		self.console.write("Reading project file... ")
-		config = self.parse_project()
-		if not config:
+		result = self.parse_project()
+		if not result:
 			self.console.write("error!\n")
 			return
-		main_file = config.get("config", "main_file")
+		main_file = result["config"].get("config", "main_file")
 		end = time.time()
 		self.console.write("done: %.2fs\n" % (end-start))
 		start = time.time()
 		self.console.write("Building... ")
 		ctx = rtsc.Compiler()
+		ctx.chdir(result["dir"])
 		ctx.import_file(main_file)
 		try:
 			statements = ctx.churn()
@@ -152,11 +173,17 @@ class RTSCWindowHelper:
 		except rtsc.CompilationException, e:
 			self.console.write("error!\n")
 			self.console.write(e.message + "\n")
+			return
 		end = time.time()
 		self.console.write("done: %.2fs\n" % (end-start))
 		start = time.time()
 		self.console.write("Compiling... ")
-		status, binary = compilation.remote_compile(js)
+		try:
+			status, binary = compilation.remote_compile(js)
+		except socket.error, e:
+			self.console.write("error!\n")
+			self.error_dialog("Remote YARC server not reachable.")
+			return
 		end = time.time()
 		if status == "g":
 			fd = open("Main", "w")
@@ -165,6 +192,7 @@ class RTSCWindowHelper:
 			os.chmod("Main", 0755)
 			self.console.write("done: %.2fs\n" % (end-start))
 			self.console.write("Compiled to: %i KiB\n" % (len(binary)/1024))
+			return result
 		elif status == "e":
 			fd = open("compilation_error.txt", "w")
 			fd.write(binary.strip())
@@ -179,8 +207,69 @@ class RTSCWindowHelper:
 			self.error_dialog("Unknown internal error status: %r" % ((status, binary),))
 
 	def on_rtsc_run(self, action=None):
-		self.on_rtsc_compile()
-		subprocess.call(["./Main"])
+		result = self.on_rtsc_compile()
+		if not result:
+			return
+		subprocess.Popen([os.path.join(result["dir"], "Main")], cwd=result["dir"], close_fds=True)
+
+	def on_new_project(self, action=None):
+		chooser = gtk.FileChooserDialog(title="New Project", action=gtk.FILE_CHOOSER_ACTION_SAVE,
+			buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		response = chooser.run()
+		if response == gtk.RESPONSE_CANCEL:
+			chooser.destroy()
+			return
+		path = chooser.get_filename()
+		proj_name = os.path.split(path)[1]
+		chooser.destroy()
+		try:
+			os.mkdir(path)
+		except OSError, e:
+			self.error_dialog("Couldn't create project.\n%s" % str(e))
+		os.chdir(path)
+		proj_file_path = "%s.rtsc-proj" % proj_name
+		fd = open(proj_file_path, "w")
+		fd.write("""[config]
+
+main_file = main.rtsc
+
+""")
+		fd.close()
+		fd = open("main.rtsc", "w")
+		fd.write("# %s\n\n" % proj_name)
+		fd.close()
+		self._window.create_tab_from_uri("file://" + os.path.abspath(proj_file_path), None, 4, False, True)
+		self._window.create_tab_from_uri("file://" + os.path.abspath("main.rtsc"), None, 3, False, False)
+		return True
+
+	def on_open_project(self, action=None):
+		chooser = gtk.FileChooserDialog(title="Open Project", action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+			buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		response = chooser.run()
+		if response == gtk.RESPONSE_CANCEL:
+			chooser.destroy()
+			return
+		path = chooser.get_filename()
+		proj_name = os.path.split(path)[1]
+		chooser.destroy()
+		proj_file_paths = [ i for i in os.listdir(path) if i.endswith(".rtsc-proj") ]
+		if len(proj_file_paths) == 0:
+			self.error_dialog("Selected directory contains no .rtsc-proj file.")
+			return
+		if len(proj_file_paths) != 1:
+			self.error_dialog("Selected directory contains multiple .rtsc-proj files!")
+			return
+		proj_file_path = proj_file_paths[0]
+		new_tab = self._window.create_tab_from_uri("file://" + os.path.abspath(os.path.join(path, proj_file_path)), None, 0, False, True)
+		new_tab.get_document().connect("loaded", self.open_project_files, new_tab.get_view())
+
+	def open_project_files(self, *args):
+		result = self.parse_project()
+		if not result:
+			return
+		main_source = result["config"].get("config", "main_file")
+		os.chdir(result["dir"])
+		self._window.create_tab_from_uri("file://" + os.path.abspath(main_source), None, 0, False, False)
 
 class RTSCConsole(gtk.ScrolledWindow):
 

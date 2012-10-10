@@ -25,7 +25,7 @@ class Compiler:
 	js_footer = """
 RTSC_main();
 """
-	import_search_path = [".", "/home/peter/proj/rtsc/libs"]
+	import_search_path = ["/home/peter/proj/rtsc/libs"]
 
 	def __init__(self):
 		self.parser = parsing.Parser(self.grammar, self.lexer)
@@ -34,6 +34,14 @@ RTSC_main();
 		self.cache_hits = 0
 		self.cache_misses = 0
 		self.parsing_cache = {}
+		self.cwd = "."
+
+	def chdir(self, path):
+		if os.path.isabs(path):
+			self.cwd = path
+		else:
+			self.cwd = os.path.normpath(os.path.join(self.cwd, path))
+		self.cwd = os.path.realpath(self.cwd)
 
 	def import_file(self, name):
 		if name in self.imported:
@@ -65,7 +73,7 @@ RTSC_main();
 			module_name = os.path.split(os.path.splitext(name)[0])[1]
 			self.imported.add(name)
 			mtime = lambda p : os.stat(p).st_mtime
-			for prefix in self.import_search_path:
+			for prefix in [self.cwd] + self.import_search_path:
 				base_path = os.path.join(prefix, name)
 				bytes_path = os.path.splitext(base_path)[0] + ".bytes"
 				statements = None
