@@ -37,6 +37,7 @@ class Compiler:
 		self.cache_misses = 0
 		self.parsing_cache = {}
 		self.cwd = "."
+		self.newest_source_time = float("-inf")
 
 	def chdir(self, path):
 		if os.path.isabs(path):
@@ -81,18 +82,20 @@ class Compiler:
 				statements = None
 				try:
 					time1 = mtime(bytes_path)
-					time2 = 0
+					time2 = float("-inf")
 					try:
 						time2 = mtime(base_path)
 					except OSError:
 						pass
 					if time1 > time2:
 						statements = self.process_bytecode(open(bytes_path).read())
+					self.newest_source_time = max(self.newest_source_time, time1, time2)
 				except OSError:
 					pass
 				if statements == None:
 					try:
 						data = open(base_path).read()
+						self.newest_source_time = max(self.newest_source_time, mtime(base_path))
 						statements = self.process(data)
 						bytecode = self.produce_bytecode(statements)
 						open(bytes_path, "w").write(bytecode)

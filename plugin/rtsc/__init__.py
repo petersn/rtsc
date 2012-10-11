@@ -54,9 +54,11 @@ class RTSCWindowHelper:
 		self._window = window
 		self._plugin = plugin
 
+		self.diff_console = None
+		self.to_disconnect = []
+
 		# Insert menu items
 		self._insert_menu()
-		self.diff_console = None
 
 	def deactivate(self):
 		# Remove any installed menu items
@@ -84,7 +86,7 @@ class RTSCWindowHelper:
 		add(("RTSC_NewProject", None, _("New RTSC Project"), None, _("Make a new project"), self.on_new_project))
 		add(("RTSC_OpenProject", None, _("Open RTSC Project"), None, _("Open an existing project"), self.on_open_project))
 		add(("RTSC_Compile", None, _("Compile"), None, _("Force recompile the current project"), self.on_rtsc_compile))
-		add(("RTSC_Run", None, _("Run"), None, _("Compile (if needed) and run the current project"), self.on_rtsc_run))
+		add(("RTSC_Run", None, _("Run"), "F5", _("Compile (if needed) and run the current project"), self.on_rtsc_run))
 
 		add(("RTSC_SaveCommit", None, _("Save Commit"), None, _("Commit a new version of the project"), self.on_save_commit))
 		add(("RTSC_Diff", None, _("Differences"), None, _("Differences from previous version"), self.on_diff))
@@ -108,11 +110,15 @@ class RTSCWindowHelper:
 
 		manager.ensure_update()
 
-		self._window.connect("tab-added", self.tab_added_cb)
+		self.to_disconnect.append((self._window, self._window.connect("tab-added", self.tab_added_cb)))
 
 	def _remove_menu(self):
 		# Get the GtkUIManager
 		manager = self._window.get_ui_manager()
+
+		# Disconnect all signals.
+		for obj, handler_id in self.to_disconnect:
+			obj.disconnect(handler_id)
 
 		# Remove the ui
 		manager.remove_ui(self._ui_id)
@@ -136,7 +142,7 @@ class RTSCWindowHelper:
 
 	def tab_added_cb(self, window, tab):
 		doc = tab.get_document()
-		doc.connect("loaded", self.check_if_doc_should_launch_more, tab.get_view())
+		self.to_disconnect.append((doc, doc.connect("loaded", self.check_if_doc_should_launch_more, tab.get_view())))
 
 	def check_if_doc_should_launch_more(self, doc, *args):
 		# Don't open more unless we have nothing else open.
@@ -190,12 +196,12 @@ class RTSCWindowHelper:
 	def on_rtsc_check(self, action=None):
 		self.on_rtsc_compile(go_all_the_way=False)
 
-	def on_rtsc_compile(self, action=None, go_all_the_way=True):
+	def on_rtsc_compile(self, action=None, go_all_the_way=True, binary_timestamp=None, result=None):
 		# Start by clearing the console.
 		self.console.buf.set_text("")
 		start = time.time()
 		self.console.write("Reading project file... ")
-		result = self.parse_project()
+		result = result or self.parse_project()
 		if not result:
 			self.console.write("error!\n")
 			return
@@ -209,6 +215,10 @@ class RTSCWindowHelper:
 		ctx.import_file(main_file)
 		try:
 			statements = ctx.churn()
+			# Early out!
+			if binary_timestamp != None and ctx.newest_source_time < binary_timestamp:
+				self.console.write("no source newer than binary -- skipping.")
+				return result
 			ctx.build(statements)
 			js = ctx.write_js()
 		except rtsc.CompilationException, e:
@@ -251,9 +261,15 @@ class RTSCWindowHelper:
 			self.error_dialog("Unknown internal error status: %r" % ((status, binary),))
 
 	def on_rtsc_run(self, action=None):
-		result = self.on_rtsc_compile()
+		result = self.parse_project()
 		if not result:
 			return
+		binary_timestamp = None
+		try:
+			binary_timestamp = os.stat(os.path.join(result["dir"], "Main")).st_mtime
+		except OSError, e:
+			pass
+		result = self.on_rtsc_compile(binary_timestamp=binary_timestamp, result=result)
 		subprocess.Popen([os.path.join(result["dir"], "Main")], cwd=result["dir"], close_fds=True)
 
 	def on_new_project(self, action=None):
@@ -305,7 +321,8 @@ main_file = main.rtsc
 			return
 		proj_file_path = proj_file_paths[0]
 		new_tab = self._window.create_tab_from_uri("file://" + os.path.abspath(os.path.join(path, proj_file_path)), None, 0, False, True)
-		new_tab.get_document().connect("loaded", self.open_project_files, new_tab.get_view())
+		doc = new_tab.get_document()
+		self.to_disconnect.append((doc, doc.connect("loaded", self.open_project_files, new_tab.get_view())))
 
 	def open_project_files(self, *args):
 		result = self.parse_project()
@@ -339,6 +356,8 @@ main_file = main.rtsc
 	def on_diff(self, action=None, just_check=False):
 		import difflib, filecmp, glob
 		result = self.guarantee_versioning()
+		if not result:
+			return
 		most_recent = result["last_version_path"]
 		if most_recent == None:
 			if just_check:
@@ -363,8 +382,8 @@ main_file = main.rtsc
 			#bottom.remove_item(self.diff_console)
 			self.diff_console = RTSCConsole()
 			bottom = self._window.get_bottom_panel()
-			bottom.add_item(self.diff_console, _('Differences'), gtk.STOCK_EXECUTE)
-		self.diff_console.buf.set_text(text)
+			bottom.add_item(self.diff_console, _('Differences'), gtk.STOCK_FILE)
+		self.diff_console.buf.set_text(text or "No differences.")
 
 	def on_save_commit(self, action=None):
 		import shutil
