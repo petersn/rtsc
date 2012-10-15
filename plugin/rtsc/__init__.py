@@ -270,6 +270,8 @@ class RTSCWindowHelper:
 		except OSError, e:
 			pass
 		result = self.on_rtsc_compile(binary_timestamp=binary_timestamp, result=result)
+		if not result:
+			return
 		subprocess.Popen([os.path.join(result["dir"], "Main")], cwd=result["dir"], close_fds=True)
 
 	def on_new_project(self, action=None):
@@ -289,11 +291,7 @@ class RTSCWindowHelper:
 		os.chdir(path)
 		proj_file_path = "%s.rtsc-proj" % proj_name
 		fd = open(proj_file_path, "w")
-		fd.write("""[config]
-
-main_file = main.rtsc
-
-""")
+		fd.write("[config]\n\nmain_file = main.rtsc\n\n")
 		fd.close()
 		fd = open("main.rtsc", "w")
 		fd.write("# %s\n\n" % proj_name)
@@ -333,7 +331,7 @@ main_file = main.rtsc
 		self._window.create_tab_from_uri("file://" + os.path.abspath(main_source), None, 0, False, False)
 
 	def on_rtsc_update(self, action=None):
-		self.success_message("Already updated to the most recent version.")
+		self.success_dialog("Already updated to the most recent version.")
 
 	def on_version(self, action=None):
 		msg = "Originally the \"RTS Compiler\"\nRTSC version: %i.%i\nGedit plugin version: %i.%i"
@@ -388,6 +386,8 @@ main_file = main.rtsc
 	def on_save_commit(self, action=None):
 		import shutil
 		result = self.on_diff(just_check=True)
+		if not result:
+			return
 		if result["does_differ"] == False:
 			self.error_dialog("No differences to commit.")
 			return
