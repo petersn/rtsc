@@ -18,16 +18,18 @@ teal   = "\x1B\x5B\x30\x31\x3B\x33\x36\x6D"
 class CompilationException(Exception):
 	pass
 
+local_dir = os.path.dirname(os.path.realpath(__file__))
+
 class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
-	grammar = open("/home/peter/proj/rtsc/grammar.bnf").read()
-	lexer = open("/home/peter/proj/rtsc/lexer.rxl").read()
+	grammar = open(os.path.join(local_dir, "grammar.bnf")).read()
+	lexer = open(os.path.join(local_dir, "lexer.rxl")).read()
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
 //RTSC_main();
 """
-	import_search_path = ["/home/peter/proj/rtsc/libs"]
+	import_search_path = [os.path.join(local_dir, "libs")]
 
 	def __init__(self):
 		self.parser = parsing.Parser(self.grammar, self.lexer)
