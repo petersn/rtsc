@@ -1,7 +1,9 @@
 #! /usr/bin/python
 # subprocess.check_output(["gmcs", "build/main.cs", "build/rtsc.cs"], stderr=subprocess.STDOUT)
 
-import socket, subprocess, os, base64
+import socket, subprocess, os, base64, array
+
+local_dir = os.path.dirname(os.path.realpath(__file__))
 
 class YARCSocket:
 	def __init__(self, host="ubuntu.cba.mit.edu", port=50002, id_string="", channel=None, send=None):
@@ -88,10 +90,10 @@ def quick_link(code, target="elf64"):
 	import struct
 	code = standard_header + code
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
-	data = read_file(os.path.join("quick_links", target+"_data"))
-	relocs = read_file(os.path.join("quick_links", target+"_relocs"))
+	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
+	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))
 	symbols = { "js_size" : len(code) }
-	data = list(data)
+	data = array.array("B", data)
 	# Do some fixups -- pseudo-linking!
 	for line in relocs.split("\n"):
 		line = line.split("#")[0].strip()
@@ -99,21 +101,23 @@ def quick_link(code, target="elf64"):
 		addr, sizeof, symbol = line.split(",")
 		addr, sizeof, symbol = int(addr), int(sizeof), symbol.strip()
 		format = sizeof_lookup[sizeof]
-		current_value = struct.unpack(format, "".join(data[addr:addr+sizeof]))[0]
+		current_value = sum(c*256**(7-i) for i, c in enumerate(data[addr:addr+sizeof]))
 		current_value += symbols[symbol]
 		current_value %= 256**sizeof
-		data[addr:addr+sizeof] = list(struct.pack(format, current_value))
-	binary = "".join(data) + code
-	binary += "\0" * (-len(binary)%32)
-	return "g", binary
+		data[addr:addr+sizeof] = array.array("B", struct.pack(format, current_value))
+	data.extend(array.array("B", code))
+	# Round the binary off to the next 32-byte mark.
+	data.extend(array.array("B", [0] * (-len(data)%32)))
+	return "g", data.tostring()
 
 header_write_time = -float("inf")
 def get_standard_header():	
 	global standard_header, header_write_time
-	newest = os.stat("std.js").st_mtime
+	std_js_path = os.path.join(local_dir, "std.js")
+	newest = os.stat(std_js_path).st_mtime
 	if newest > header_write_time:
-		print "Reloading: std.js"
-		standard_header = open("std.js").read()
+		print "Reloading:", std_js_path
+		standard_header = open(std_js_path).read()
 		header_write_time = newest
 
 def local_compile(code):
