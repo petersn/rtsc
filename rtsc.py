@@ -611,7 +611,8 @@ if __name__ == "__main__":
 		ctx.build(statements)
 		js = ctx.write_js()
 		import compilation
-		status, binary = compilation.remote_compile(js)
+		status, binary = compilation.quick_link(js)
+		#status, binary = compilation.remote_compile(js)
 
 	if status == "g":
 		fd = open("Main", "w")

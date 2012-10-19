@@ -10,8 +10,7 @@
 using namespace v8;
 using namespace std;
 
-extern char _binary_code_js_start;
-extern char _binary_code_js_end;
+extern unsigned long long _binary_code_js_start;
 
 Handle<Value> print(const Arguments& x) {
 	int length = x.Length();
@@ -49,8 +48,8 @@ int main(int argc, char* argv[]) {
 	// built-in global functions.
 
 	SCOPE(global);
-	FUNC(global, print, print);
-	FUNC(global, _load_c_extension, _load_c_extension);
+	FUNC2(global, print, print);
+	FUNC2(global, _load_c_extension, _load_c_extension);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.
@@ -61,13 +60,14 @@ int main(int argc, char* argv[]) {
 	Context::Scope context_scope(context);
 
 	// Load up the Javascript source that is bundled in our binary.
-	size_t source_length = (&_binary_code_js_end) - (&_binary_code_js_start);
-	char* javascript_source = new char[source_length + 1];
-	memcpy(javascript_source, &_binary_code_js_start, source_length);
+	size_t source_length = ((unsigned long long*)&_binary_code_js_start)[1];
+
+	unsigned char* javascript_source = new unsigned char[source_length + 1];
+	memcpy(javascript_source, (void*)_binary_code_js_start, source_length);
 	javascript_source[source_length] = 0;
 
 	// Create a string containing the JavaScript source code.
-	Handle<String> source = String::New(javascript_source);
+	Handle<String> source = String::New((char*) javascript_source);
 
 	// Compile the source code.
 	Handle<Script> script = Script::Compile(source);

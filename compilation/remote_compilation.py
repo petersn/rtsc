@@ -74,14 +74,50 @@ def check_output(*args, **kwargs):
 		raise exception
 	return stdout
 
+read_file_cache = {}
+def read_file(path):
+	if path not in read_file_cache:
+		fd = open(path)
+		data = fd.read()
+		fd.close()
+		read_file_cache[path] = data
+	return read_file_cache[path]
+
+def quick_link(code, target="elf64"):
+	get_standard_header()
+	import struct
+	code = standard_header + code
+	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
+	data = read_file(os.path.join("quick_links", target+"_data"))
+	relocs = read_file(os.path.join("quick_links", target+"_relocs"))
+	symbols = { "js_size" : len(code) }
+	data = list(data)
+	# Do some fixups -- pseudo-linking!
+	for line in relocs.split("\n"):
+		line = line.split("#")[0].strip()
+		if not line: continue
+		addr, sizeof, symbol = line.split(",")
+		addr, sizeof, symbol = int(addr), int(sizeof), symbol.strip()
+		format = sizeof_lookup[sizeof]
+		current_value = struct.unpack(format, "".join(data[addr:addr+sizeof]))[0]
+		current_value += symbols[symbol]
+		current_value %= 256**sizeof
+		data[addr:addr+sizeof] = list(struct.pack(format, current_value))
+	binary = "".join(data) + code
+	binary += "\0" * (-len(binary)%32)
+	return "g", binary
+
 header_write_time = -float("inf")
-def local_compile(code):
+def get_standard_header():	
 	global standard_header, header_write_time
 	newest = os.stat("std.js").st_mtime
 	if newest > header_write_time:
 		print "Reloading: std.js"
 		standard_header = open("std.js").read()
 		header_write_time = newest
+
+def local_compile(code):
+	get_standard_header()
 	write_fd = open("v8_base/code.js", "w")
 	write_fd.write(standard_header)
 	write_fd.write(code)
