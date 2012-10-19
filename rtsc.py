@@ -55,7 +55,9 @@ class Compiler:
 			self.import_stack.remove(name)
 		self.import_stack.append(name)
 
-	def load_parsing_cache(self, path="parse_cache"):
+	def load_parsing_cache(self, path=None):
+		if path == None:
+			path = os.path.join(local_dir, "parse_cache")
 		data = open(path).read()
 		stmts = self.process_bytecode(data)
 		assert stmts[0] == "parse_cache"
@@ -63,7 +65,9 @@ class Compiler:
 			assert name == "cache"
 			self.parsing_cache[tuple(a)] = b
 
-	def save_parsing_cache(self, path="parse_cache"):
+	def save_parsing_cache(self, path=None):
+		if path == None:
+			path = os.path.join(local_dir, "parse_cache")
 		stmts = ["parse_cache"] + [["cache", list(a), b] for a, b in self.parsing_cache.iteritems()]
 		bc = self.produce_bytecode(stmts)
 		a = self.process_bytecode(bc)

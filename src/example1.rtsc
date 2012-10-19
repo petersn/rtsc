@@ -42,4 +42,5 @@ def main()
 	mainloop()
 
 global.main = main
+main()
 

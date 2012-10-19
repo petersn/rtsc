@@ -105,7 +105,7 @@ class RTSCWindowHelper:
 
 		# Insert the bottom panel console
 		self.console = RTSCConsole()
-		bottom = self._window.get_bottom_panel()
+		bottom = self._window.get_side_panel()
 		bottom.add_item(self.console, _('Compilation Console'), gtk.STOCK_EXECUTE)
 
 		manager.ensure_update()
@@ -130,11 +130,11 @@ class RTSCWindowHelper:
 		manager.ensure_update()
 
 		# Remove the bottom panel console
-		bottom = self._window.get_bottom_panel()
+		bottom = self._window.get_side_panel()
 		bottom.remove_item(self.console)
 
 		if self.diff_console != None:
-			bottom = self._window.get_bottom_panel()
+			bottom = self._window.get_side_panel()
 			bottom.remove_item(self.diff_console)
 
 	def update_ui(self):
@@ -233,7 +233,7 @@ class RTSCWindowHelper:
 		start = time.time()
 		self.console.write("Compiling... ")
 		try:
-			status, binary = compilation.remote_compile(js)
+			status, binary = compilation.quick_link(js)
 		except socket.error, e:
 			self.console.write("error!\n")
 			self.error_dialog("Remote YARC server not reachable.")
@@ -376,10 +376,10 @@ class RTSCWindowHelper:
 			a_lines, b_lines = open(path).readlines(), open(os.path.join(result["last_version_path"], path)).readlines()
 			text += "".join(difflib.unified_diff(b_lines, a_lines, fromfile="Previous %s" % path, tofile="Current  %s" % path))
 		if self.diff_console == None:
-			#bottom = self._window.get_bottom_panel()
+			#bottom = self._window.get_side_panel()
 			#bottom.remove_item(self.diff_console)
 			self.diff_console = RTSCConsole()
-			bottom = self._window.get_bottom_panel()
+			bottom = self._window.get_side_panel()
 			bottom.add_item(self.diff_console, _('Differences'), gtk.STOCK_FILE)
 		self.diff_console.buf.set_text(text or "No differences.")
 

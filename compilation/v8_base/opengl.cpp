@@ -236,6 +236,8 @@ v8::Handle<v8::Value> opengl_poll(const v8::Arguments& x) {
 }
 
 v8::Handle<v8::Value> opengl_load_image(const v8::Arguments& x) {
+	v8::HandleScope handle_scope;
+
 	GLuint texture;
 	SDL_Surface* bmpFile;
 
@@ -275,7 +277,7 @@ v8::Handle<v8::Value> opengl_load_image(const v8::Arguments& x) {
 	// Free the surface after using it
 	SDL_FreeSurface(bmpFile);
 
-	return s;
+	return handle_scope.Close(s);
 }
 
 v8::Handle<v8::Value> opengl_begin_frame(const v8::Arguments& x) {
