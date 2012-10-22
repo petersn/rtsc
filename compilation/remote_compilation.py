@@ -116,7 +116,6 @@ def get_standard_header():
 	std_js_path = os.path.join(local_dir, "std.js")
 	newest = os.stat(std_js_path).st_mtime
 	if newest > header_write_time:
-		print "Reloading:", std_js_path
 		standard_header = open(std_js_path).read()
 		header_write_time = newest
 

@@ -1,15 +1,30 @@
 # Basic 2d library.
 
-import opengl
+import opengl, os
 
-width  = 640
-height = 480
+self.width  = 640
+self.height = 480
 
 textures = {}
+keys_held = {}
 
-class object
+class Point
+	def __init__(x, y)
+		self.x = x
+		self.y = y
+
+	def __subclass_init__()
+		self.x = 0
+		self.y = 0
+		print("Subclass of Point.")
+
+class Sprite
+	subclass Point
 	def __init__()
-		pass
+		error("Don't instantiate Sprite directly!")
+
+	def __subclass_init__()
+		print("Subclass of Sprite.")
 
 def process_events()
 	while true
@@ -20,28 +35,19 @@ def process_events()
 			opengl.quit()
 			os.exit()
 		if ev.type == "key-down"
-			held[ev.key] = true
+			keys_held[ev.key] = true
 		if ev.type == "key-up"
-			held[ev.key] = false
+			keys_held[ev.key] = false
 
 def mainloop()
 	while true
 		process_events()
-		if held["left-arrow"]
-			pos[0] -= 1
-		if held["right-arrow"]
-			pos[0] += 1
-		if held["up-arrow"]
-			pos[1] -= 1
-		if held["down-arrow"]
-			pos[1] += 1
 		opengl.begin_frame()
-		opengl.draw_texture(textures["grass"], pos[0], pos[1])
 		opengl.end_frame()
 
 def main()
-	opengl.launch(width, height)
+	opengl.launch(self.width, self.height)
+	mainloop()
 
-expose object
-global.main = main
+expose Sprite, main
 

@@ -2,7 +2,8 @@
 
 import basic2d
 
-basic2d.window_size = [640, 480]
+basic2d.width = 640
+basic2d.height = 480
 
 class Wall
 	subclass basic2d.object
@@ -26,5 +27,5 @@ class Player
 		if self.hp <= 0
 			self.destroy()
 
-main = basic2d.main
+print("Foobar")
 

@@ -340,14 +340,6 @@ class Class:
 		objs = self.state.values()
 		if self.name:
 			s.append("function _RTSC_class_%s() {\n" % (self.name,))
-		# Write out the classes.
-		for obj in objs:
-			if obj.executable:
-				continue
-			js = obj.write_js()
-			if self.name:
-				js = indent(js)
-			s.append(js)
 		subclassings = []
 		i = 0
 		for stmt in self.code[:]:
@@ -364,6 +356,25 @@ class Class:
 		if self.name:
 			s.append("}\n")
 			s.append("defaultFillPrototype(_RTSC_class_%s.prototype);\n" % self.name)
+		# Write out the class instantiator.
+		if self.name:
+			s.append("""_RTSC_class_%(name)s.prototype.instantiate_class = function() {
+	var parent_init = this.__proto__.instantiate_class;
+	if (parent_init !== undefined)
+		parent_init.apply(this);
+	if (! (this in RTSC_object_lists))
+		RTSC_object_lists[%(ident)s] = [];
+	RTSC_object_lists[%(ident)s].push(this);
+""" % { "ident" : self.identifier(), "name" : self.name })
+		for obj in objs:
+			if obj.executable:
+				continue
+			js = obj.write_js()
+			if self.name:
+				js = indent(js)
+			s.append(js)
+		if self.name:
+			s.append("}\n")
 		# Write out the functions.
 		for obj in objs:
 			if not obj.executable:
@@ -372,8 +383,13 @@ class Class:
 			if self.name:
 				s.append("_RTSC_class_%s.prototype.%s = %s;\n" % (self.name, obj.identifier(), obj.identifier()))
 		if self.name:
-			s.append("function %s() {\n\tobj = new _RTSC_class_%s();\n\tobj.RTSC___init__.apply(obj, arguments);\n\treturn obj;\n}\n" \
-				"%s.secret_class = _RTSC_class_%s;\n" % (self.identifier(), self.name, self.identifier(), self.name))
+			s.append("""function %(ident)s() {
+	obj = new _RTSC_class_%(name)s();
+	obj.instantiate_class();
+	obj.RTSC___init__.apply(obj, arguments);
+	return obj;
+}
+%(ident)s.secret_class = _RTSC_class_%(name)s;\n""" % { "ident" : self.identifier(), "name" : self.name })
 		for subclassing in subclassings:
 			preamble, tag = self.write_for(subclassing[2])
 			s.append(preamble)
@@ -474,7 +490,10 @@ class Class:
 				itr = self.write_for(code[3])
 				lhs = code[2].string
 				self[lhs] = lhs = Variable(lhs)
-				return (itr[0] + "for (%s in %s) {\n" % (lhs.identifier(), itr[1]) + indent(self.write_for(code[4])[0]) + "}\n", "")
+				counter_tag = unique()
+				loop_starter = "for (var %s = 0; %s < %s.length; %s++) {\n\tvar %s = %s[%s];\n" % \
+					(counter_tag, counter_tag, itr[1], counter_tag, lhs.identifier(), itr[1], counter_tag)
+				return (itr[0] + loop_starter + indent(self.write_for(code[4])[0]) + "}\n", "")
 			elif code[1].string == "while":
 				expr = self.write_for(code[2])
 				return ("while (true) {\n%s\tif (!(%s)) break;\n%s}\n" % (indent(expr[0]), expr[1], indent(self.write_for(code[3])[0])), "")
@@ -616,6 +635,7 @@ if __name__ == "__main__":
 		js = ctx.write_js()
 		import compilation
 		status, binary = compilation.quick_link(js)
+		print js
 		#status, binary = compilation.remote_compile(js)
 
 	if status == "g":
