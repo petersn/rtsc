@@ -349,23 +349,26 @@ class Class:
 				continue
 			i += 1
 		assert len(subclassings) < 2, "Unfortunately, currently only single inheritance is supported."
-		js = self.write_for(self.code, getValue=False)[0]
-		if self.name:
-			js = indent(js)
-		s.append(js)
 		if self.name:
 			s.append("}\n")
 			s.append("defaultFillPrototype(_RTSC_class_%s.prototype);\n" % self.name)
 		# Write out the class instantiator.
 		if self.name:
-			s.append("""_RTSC_class_%(name)s.prototype.instantiate_class = function() {
-	var parent_init = this.__proto__.instantiate_class;
+			var_dict = { "ident" : self.identifier(), "name" : self.name }
+			s.append("_RTSC_class_%(name)s.prototype.instantiate_class = function() {\n" % var_dict)
+			if subclassings:
+				subclassing = subclassings[0]
+				preamble, tag = self.write_for(subclassing[2])
+				s.append("""	var parent_init = %s.secret_class.prototype.instantiate_class;
 	if (parent_init !== undefined)
 		parent_init.apply(this);
-	if (! (this in RTSC_object_lists))
-		RTSC_object_lists[%(ident)s] = [];
-	RTSC_object_lists[%(ident)s].push(this);
-""" % { "ident" : self.identifier(), "name" : self.name })
+""" % (tag,))
+			s.append("\tRTSC_object_lists[%(ident)s].push(this);\n" % var_dict)
+		# Write out the main code.
+		if self.name:
+			js = self.write_for(self.code, getValue=False)[0]
+			s.append(indent(js))
+		# Write out the non-executables.
 		for obj in objs:
 			if obj.executable:
 				continue
@@ -373,6 +376,7 @@ class Class:
 			if self.name:
 				js = indent(js)
 			s.append(js)
+		# End the class.
 		if self.name:
 			s.append("}\n")
 		# Write out the functions.
@@ -389,12 +393,19 @@ class Class:
 	obj.RTSC___init__.apply(obj, arguments);
 	return obj;
 }
+RTSC_object_lists[%(ident)s] = [];
 %(ident)s.secret_class = _RTSC_class_%(name)s;\n""" % { "ident" : self.identifier(), "name" : self.name })
 		for subclassing in subclassings:
 			preamble, tag = self.write_for(subclassing[2])
+#			s.append("// BEGIN PREAMBLE\n")
 			s.append(preamble)
+#			s.append("// END PREAMBLE: %s\n" % tag)
 			s.append("_RTSC_class_%s.prototype.__proto__ = %s.secret_class.prototype;\n" % (self.name, tag))
 		s.append("\n")
+		# Write out the MAINEST code.
+		if not self.name:
+			js = self.write_for(self.code, getValue=False)[0]
+			s.append(js)
 		return "".join(s)
 
 	def type_code(self, typ):
@@ -635,7 +646,6 @@ if __name__ == "__main__":
 		js = ctx.write_js()
 		import compilation
 		status, binary = compilation.quick_link(js)
-		print js
 		#status, binary = compilation.remote_compile(js)
 
 	if status == "g":
