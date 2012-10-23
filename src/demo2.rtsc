@@ -1,0 +1,18 @@
+# Simple RTSC 
+
+import basic2d
+
+basic2d.width = 640
+basic2d.height = 640
+
+class Player
+	subclass basic2d.Sprite
+	self.image = "/home/peter/Desktop/rtscprojs/foo/Grass.bmp"
+	on 
+
+# 
+player = Player()
+
+# When we're ready, launch our game through basic2d.
+basic2d.main()
+

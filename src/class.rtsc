@@ -1,0 +1,19 @@
+# Simple class example
+
+class Qux
+	print("Qux instance being instantiated.")
+	self.var = "qux"
+
+class Bar
+	subclass Qux
+	print("Bar instance being instantiated.")
+	self.message = "hello"
+
+class Foo
+	subclass Bar
+	print("Foo instance being instantiated.")
+	self.var = "foo"
+
+x = Foo()
+print(x.var, "says", x.message)
+
