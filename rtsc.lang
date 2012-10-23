@@ -97,6 +97,7 @@
           <keyword>def</keyword>
           <keyword>and</keyword>
           <keyword>or</keyword>
+          <keyword>not</keyword>
           <keyword>for</keyword>
           <keyword>while</keyword>
           <keyword>if</keyword>

@@ -9,7 +9,8 @@ _expr_p3:  = _expr_p2  | expr_p3
 _expr_p4:  = _expr_p3  | expr_p4
 _expr_p42: = _expr_p4  | expr_p42
 _expr_p45: = _expr_p42 | expr_p45
-_expr_p5:  = _expr_p45 | expr_p5
+_expr_p47: = _expr_p45 | expr_p47
+_expr_p5:  = _expr_p47 | expr_p5
 _expr_p6:  = _expr_p5  | expr_p6
 
 expr_p0:literal = "type:number" | "type:string" | "type:token"
@@ -22,6 +23,7 @@ expr_p4:op      = _expr_p3 "match:symbol:+:-" _expr_p4
 expr_p42:op     = _expr_p4 "match:symbol:<:>" _expr_p42
 expr_p42:op     = _expr_p4 "match:symbol:<:>:!:=" "match:symbol:=" _expr_p42
 expr_p45:op     = _expr_p42 "match:reserved:and:or" _expr_p45
+expr_p47:unop   = "spec:reserved:not" _expr_p47
 expr_p5:expr    = assignment | lambda
 #expr_p6:expr    = expr_list
 

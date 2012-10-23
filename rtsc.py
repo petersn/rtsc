@@ -491,7 +491,8 @@ RTSC_object_lists[%(ident)s] = [];
 		elif code[0] == "unop":
 			rhs = self.write_for(code[-1])
 			tag = unique()
-			return (rhs[0] + "var %s = %s%s;\n" % (tag, code[1].string, rhs[1]), tag)
+			unop = code[1].string.replace("not", "!")
+			return (rhs[0] + "var %s = %s%s;\n" % (tag, unop, rhs[1]), tag)
 		elif code[0] == "list":
 			args = map(self.write_for, code[1:])
 			return ("".join(i[0] for i in args), "[" + ", ".join(i[1] for i in args) + "]")
