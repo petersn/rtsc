@@ -6,7 +6,7 @@ RTSC_false = false;
 RTSC_object_lists = {};
 
 Array.prototype.RTSC_push = Array.prototype.push;
-Array.prototype.RTSC_contains = function (x) {
+Object.prototype.RTSC_contains = function (x) {
 	return x in this;
 };
 

@@ -9,22 +9,18 @@ textures = {}
 keys_held = {}
 
 class Point
+	self.x = 0
+	self.y = 0
+
 	def __init__(x, y)
 		self.x = x
 		self.y = y
 
-	def __subclass_init__()
-		self.x = 0
-		self.y = 0
-		print("Subclass of Point.")
-
 class Sprite
 	subclass Point
+
 	def __init__()
 		error("Don't instantiate Sprite directly!")
-
-	def __subclass_init__()
-		print("Subclass of Sprite.")
 
 def process_events()
 	while true
@@ -39,10 +35,17 @@ def process_events()
 		if ev.type == "key-up"
 			keys_held[ev.key] = false
 
+def draw_image(path, x, y)
+	if not textures.contains(path)
+		textures[path] = opengl.load_image("../xs/data/Grass.bmp")
+	opengl.draw_texture(textures[path], x, y)
+
 def mainloop()
 	while true
 		process_events()
 		opengl.begin_frame()
+		for obj in object_lists[Sprite]
+			draw_image(obj.image, obj.x, obj.y)
 		opengl.end_frame()
 
 def main()
