@@ -76,6 +76,7 @@ auto_func = "match:token:on" auto_sequence
 auto_call = "match:token:property" auto_sequence
 
 loop = "spec:reserved:for" "type:token" "spec:reserved:in"~ expr
+loop = "spec:reserved:for" "type:token" "spec:symbol:,"~ "type:token" "spec:reserved:in"~ expr
 loop = "spec:reserved:while" expr
 loop = "spec:reserved:if" expr
 
@@ -93,5 +94,7 @@ token_sequence: = "type:token" | "type:token" "spec:symbol:,"~ @@
 
 expose = "spec:reserved:expose" token_sequence
 
-main = expr | function_definition | loop | class | import | standalone | valued | auto_func | auto_call | expose
+javascript = "spec:reserved:__inline_javascript__"~
+
+main = expr | function_definition | loop | class | import | standalone | valued | auto_func | auto_call | expose | javascript
 

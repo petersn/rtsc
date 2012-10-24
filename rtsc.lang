@@ -39,6 +39,7 @@
     <style id="decimal"           _name="Decimal number"        map-to="def:decimal"/>
     <style id="builtin-constant"  _name="Builtin Constant"      map-to="def:special-constant"/>
     <style id="builtin-function"  _name="Builtin Function"      map-to="def:builtin"/>
+    <style id="passed-words"      _name="Passed Words"          map-to="def:type"/>
   </styles>
 
   <definitions>
@@ -74,6 +75,10 @@
           ( (\d+|(\d+)?\.\d+|\d+\.)[eE][+-]?\d+ )
         </define-regex>
 
+        <context id="on-coloring" style-ref="passed-words">
+          <match>((?&lt;=on)(\s+\w+)+\s*$)|((?&lt;=property)(\s+\w+)+\s*$)</match>
+        </context>
+
         <context id="float" style-ref="floating-point">
           <match>(?&lt;![\w\.])\%{float}(?![\w\.])</match>
         </context>
@@ -103,6 +108,7 @@
           <keyword>if</keyword>
           <keyword>in</keyword>
           <keyword>expose</keyword>
+          <keyword>__inline_javascript__</keyword>
         </context>
 
         <context id="builtin-constants" style-ref="builtin-constant">

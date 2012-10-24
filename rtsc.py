@@ -181,7 +181,7 @@ class Compiler:
 					self.import_file(sub.string + ".rtsc")
 
 	def process(self, code):
-		compile_stack = [ ([], ["expr_list"]) ]
+		compile_stack = [ ([], ["expr_list"], "normal") ]
 		starting_block = False
 		lines = code.split("\n")
 		for line in lines:
@@ -206,6 +206,10 @@ class Compiler:
 				starting_block = False
 			while len(whitespace) < len(compile_stack[-1][0]):
 				compile_stack.pop()
+			# If we're in raw mode, push the line.
+			if compile_stack[-1][2] == "raw":
+				compile_stack[-1][1].append(line)
+				continue
 			# Right before we parse, check our parsing cache.
 			if tuple(tokens) in self.parsing_cache:
 				self.cache_hits += 1
@@ -224,17 +228,18 @@ class Compiler:
 				self.parsing_cache[tuple(tokens)] = copy.deepcopy(p)
 			for statement in p[1:]:
 				if statement[0] in ("expr", "standalone", "valued", "declaration", "subclass", "auto_call", "expose"):
-					compile_stack[-1][1].append( statement )
-				elif statement[0] in ("function_definition", "loop", "class", "auto_func"):
+					compile_stack[-1][1].append(statement)
+				elif statement[0] in ("function_definition", "loop", "class", "auto_func", "javascript"):
 					# Make a list to contain the code we're going to insert.
-					statement.append( ["expr_list"] )
-					compile_stack[-1][1].append( statement )
-					compile_stack.append([compile_stack[-1][0], statement[-1]])
+					statement.append(["expr_list"])
+					compile_stack[-1][1].append(statement)
+					new_entry = [compile_stack[-1][0], statement[-1], "raw" if statement[0] == "javascript" else "normal"]
+					compile_stack.append(new_entry)
 					starting_block = True
 				elif statement[0] == "import":
 					if len(compile_stack) != 1:
 						raise CompilationException("Non-top level imports not allowed.")
-					compile_stack[-1][1].append( statement )
+					compile_stack[-1][1].append(statement)
 				else:
 					assert False, "Unknown compile-time statement: %r" % statement
 		return compile_stack[0][1]
@@ -501,13 +506,25 @@ RTSC_object_lists[%(ident)s] = [];
 			return ("".join(i[0] for i in args), "{" + ", ".join(a[1] + ":" + b[1] for a, b in zip(args[::2], args[1::2])) + "}")
 		elif code[0] == "loop":
 			if code[1].string == "for":
-				itr = self.write_for(code[3])
-				lhs = code[2].string
-				self[lhs] = lhs = Variable(lhs)
-				counter_tag = unique()
-				loop_starter = "for (var %s = 0; %s < %s.length; %s++) {\n\tvar %s = %s[%s];\n" % \
-					(counter_tag, counter_tag, itr[1], counter_tag, lhs.identifier(), itr[1], counter_tag)
-				return (itr[0] + loop_starter + indent(self.write_for(code[4])[0]) + "}\n", "")
+				# Check if iterating over an array.
+				if len(code) == 5:
+					itr = self.write_for(code[3])
+					lhs = code[2].string
+					self[lhs] = lhs = Variable(lhs)
+					counter_tag = unique()
+					loop_starter = "for (var %s = 0; %s < %s.length; %s++) {\n\tvar %s = %s[%s];\n" % \
+						(counter_tag, counter_tag, itr[1], counter_tag, lhs.identifier(), itr[1], counter_tag)
+					return (itr[0] + loop_starter + indent(self.write_for(code[4])[0]) + "}\n", "")
+				# Check if iterating over a dictionary.
+				elif len(code) == 6:
+					itr = self.write_for(code[4])
+					keyvar, valuevar = code[2].string, code[3].string
+					self[keyvar] = keyvar = Variable(keyvar)
+					self[valuevar] = valuevar = Variable(valuevar)
+					loop_starter = "for (var %s in %s) {\n\tvar %s = %s[%s];\n" % \
+						(keyvar.identifier(), itr[1], valuevar.identifier(), itr[1], keyvar.identifier())
+					return (itr[0] + loop_starter + indent(self.write_for(code[5])[0]) + "}\n", "")
+				else: assert False
 			elif code[1].string == "while":
 				expr = self.write_for(code[2])
 				return ("while (true) {\n%s\tif (!(%s)) break;\n%s}\n" % (indent(expr[0]), expr[1], indent(self.write_for(code[3])[0])), "")
@@ -559,9 +576,15 @@ RTSC_object_lists[%(ident)s] = [];
 		elif code[0] == "auto_call":
 			return ("this.RTSC__autocall_%s(%s);\n" % (code[1].string, ", ".join("%r" % i.string for i in code[2:])), "")
 		elif code[0] == "auto_func":
-			return ("this.RTSC__autofunc_%s(%s);\n" % (code[1].string, ", ".join("%r" % i.string for i in code[2:-1])), "")
+			tag = unique()
+			expr = self.write_for(code[-1])
+			function = "var %s = function(RTSC_event) {\n%s\treturn %s;\n}\n" % (tag, indent(expr[0]), expr[1])
+			arguments = [tag] + ["%r" % i.string for i in code[2:-1]]
+			return (function + "this.RTSC__autofunc_%s(this, %s);\n" % (code[1].string, ", ".join(arguments)), "")
 		elif code[0] == "expose":
 			return ("".join("this.RTSC_%s = RTSC_%s;\n" % ((i.string,)*2) for i in code[2:]), "")
+		elif code[0] == "javascript":
+			return ("".join(i+"\n" for i in code[1][1:]), "")
 		else:
 			print code
 			assert False
@@ -647,6 +670,7 @@ if __name__ == "__main__":
 	with Timer("Time to compile:"):
 		ctx.build(statements)
 		js = ctx.write_js()
+		print js
 		import compilation
 		status, binary = compilation.quick_link(js)
 		#status, binary = compilation.remote_compile(js)

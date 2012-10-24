@@ -2,17 +2,19 @@
 
 import basic2d
 
-basic2d.width = 640
-basic2d.height = 640
+basic2d.width = 512
+basic2d.height = 512
 
 class Player
 	subclass basic2d.Sprite
-	self.image = "/home/peter/Desktop/rtscprojs/foo/Grass.bmp"
-	on 
+	self.image = "Grass.bmp"
+	on key held
+		if event["key"] == "left-arrow"
+			self.x -= 1
+		if event["key"] == "right-arrow"
+			self.x += 1
 
-# 
 player = Player()
 
-# When we're ready, launch our game through basic2d.
 basic2d.main()
 

@@ -22,6 +22,17 @@ class Sprite
 	def __init__()
 		error("Don't instantiate Sprite directly!")
 
+__inline_javascript__
+	var RTSC_callback_dict = {};
+	_RTSC_class_Sprite.prototype.RTSC__autofunc_on = function() {
+		var obj = arguments[0];
+		var callback = arguments[1];
+		var keywords = Array.prototype.slice.call(arguments, 2);
+		if (RTSC_callback_dict[keywords] === undefined)
+			RTSC_callback_dict[keywords] = [];
+		RTSC_callback_dict[keywords].push( [obj, callback] );
+	}
+
 def process_events()
 	while true
 		ev = opengl.poll()
@@ -37,12 +48,17 @@ def process_events()
 
 def draw_image(path, x, y)
 	if not textures.contains(path)
-		textures[path] = opengl.load_image("../xs/data/Grass.bmp")
+		textures[path] = opengl.load_image(path)
 	opengl.draw_texture(textures[path], x, y)
 
 def mainloop()
 	while true
 		process_events()
+		for key, value in keys_held
+			if key != "RTSC_contains" and keys_held[key]
+				for obj in callback_dict[["key", "held"]]
+					__inline_javascript__
+						RTSC_obj[1].call(RTSC_obj[0], { "key" : RTSC_key });
 		opengl.begin_frame()
 		for obj in object_lists[Sprite]
 			draw_image(obj.image, obj.x, obj.y)
