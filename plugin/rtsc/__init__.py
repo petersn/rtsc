@@ -187,7 +187,7 @@ class RTSCWindowHelper:
 			self.error_dialog("Project file %s has no section [config]\nConsider adding the line:\n\n[config]" % doc.get_short_name_for_display())
 			return
 		if not parser.has_option("config", "main_file"):
-			self.error_dialog("Project file %s's [config] section has no main_file option." % doc.get_short_name_for_display())
+			self.error_dialog("Project file %s's [config] section has no main_file variable." % doc.get_short_name_for_display())
 			return
 		result = { "doc" : doc, "config" : parser }
 		result["dir"] = os.path.realpath(os.path.split(doc.get_uri_for_display())[0])

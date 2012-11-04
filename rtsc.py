@@ -643,14 +643,110 @@ class Variable(Class):
 		self.type_of = resolve_type(self.type_of)
 		return "%s %s;\n" % (self.type_of.identifier(), self.identifier())
 
+def determine_arch():
+	import sys, platform
+	if "linux" in sys.platform:
+		base = "elf"
+	elif "darwin" in sys.platform:
+		base = "mac"
+	elif "win" in sys.platform:
+		base = "win"
+	else:
+		print red + "Unknown platform string:" + normal, repr(sys.platform)
+		exit(1)
+	bits = ["32", "64"]["64" in platform.uname()[-2]]
+	return base + bits
+
 class Timer:
 	def __init__(self, msg): self.msg = msg
 	def __enter__(self): self.start = time.time()
 	def __exit__(self, t, val, tb):
 		end = time.time()
-		print green+self.msg+normal, "%.3fs" % (end - self.start)
+		if args.v:
+			print green+self.msg+normal, "%.3fs" % (end - self.start)
+
+class Chdir:
+	def __init__(self, path): self.path = path
+	def __enter__(self):
+		self.old_path = os.getcwd()
+		os.chdir(self.path)
+	def __exit__(self, t, val, tb):
+		os.chdir(self.old_path)
 
 if __name__ == "__main__":
+	import argparse
+
+	def address_validator(s):
+		if s.count(":") > 1:
+			raise argparse.ArgumentTypeError("addresses may have at most one port specifier")
+		if ":" in s:
+			address, port = s.split(":")
+			try:
+				port = int(port)
+			except ValueError:
+				raise argparse.ArgumentTypeError("invalid port")
+			if not 0 >= port >= 65535:
+				raise argparse.ArgumentTypeError("port out of range, must be in [0, 2^16)")
+		else:
+			address, port = s, 50002
+		return address, port
+
+	default_binary = "Main.exe" if "win" in determine_arch() else "Main"
+
+	epilog = """
+If --project is used, command line options supercede options selected in the project file.
+The options --{host,chan,key} are equivalent to the project file options {host,chan,key} in the [config] section.
+"""
+
+	parser = argparse.ArgumentParser(prog="rtsc", description="RTSC command line compiler, v%s.%s" % version, epilog=epilog)
+	parser.add_argument("-o", "--out", default=default_binary, help="set the output file (default: Main, Main.exe on win)")
+	parser.add_argument("-v", action="store_const", const=True, default=False, help="be verbose")
+	parser.add_argument("--arch", default="native", choices=("native", "32", "64", "elf32", "elf64", "win32", "win64", "mac32", "mac64"), help="choose an output architecture (default: native)")
+	parser.add_argument("--project", help="input .rtsc-proj project file, in leu of sources")
+	parser.add_argument("--remote", action="store_const", const=True, default=False, help="use remote compilation, rather than quick-links")
+	parser.add_argument("--host", type=address_validator, default=("ubuntu.cba.mit.edu", 50002), help="select the remote host to compile the binary with\n(default: ubuntu.cba.mit.edu:50002)")
+	parser.add_argument("--chan", default="stockserv", help="the channel to use to connect to the remote compiler (default: stockserv)")
+	parser.add_argument("--key", type=argparse.FileType("r"), help="path to the remote host's public key certificate")
+	parser.add_argument("--ls", action="store_const", const=True, default=False, help="list all channels on the remote host -- then exit")
+#	parser.add_argument("--updates", help="ask the remote compilation server about RTSC updates (doesn't actually update)")
+	parser.add_argument("--ls-ql", action="store_const", const=True, default=False, help="list all local quick-link targets")
+	parser.add_argument("file", nargs="*", help="input .rtsc/.bytes/suffixless files to compile")
+
+	args = parser.parse_args()
+
+	if args.ls:
+		import compilation
+		print "Connecting to:", "%s:%s" % (args.host[0], args.host[1])
+		chans = compilation.remote_channels(args.host[0], args.host[1])
+		print "Remote compilation channels:", len(chans)
+		for chan in chans:
+			print "\t%s" % chan
+		exit()
+
+	if args.ls_ql:
+		import compilation
+		print "Quick-link targets:", ", ".join(compilation.capabilities())
+		exit()
+
+	if args.file and args.project:
+		print "rtsc: cannot pass both --project and additional source files"
+		exit()
+
+	# Determine the correct architecture if an arch "relative" to native is chosen.
+	if args.v:
+		print green+"Selected arch:"+normal, args.arch
+
+	if args.arch in ("native", "32", "64"):
+		real = determine_arch()
+		if args.v:
+			print green+"Detected platform:"+normal, real
+		# If the mode is 32 or 64, then replace the suffix as appropriate.
+		if args.arch != "native":
+			real = real[:-2] + args.arch
+		args.arch = real
+		if args.v:
+			print green+"Using arch:"+normal, args.arch
+
 	with Timer("Time to load:"):
 		ctx = Compiler()
 		try:
@@ -658,28 +754,64 @@ if __name__ == "__main__":
 		except IOError:
 			print red + "No parsing cache." + normal
 
-	with Timer("Time to parse:"):
-		for path in sys.argv[1:]:
-			ctx.import_file(path)
-		statements = ctx.churn()
+	if args.v:
+		print green + "Parse cache size:" + normal, len(ctx.parsing_cache)
 
-	#print grey + "Cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))
+	if args.project:
+		project_root = os.path.dirname(os.path.realpath(args.project))
+		try:
+			fd = open(args.project)
+			text = fd.read()
+			fd.close()
+		except IOError, e:
+			print "rtsc:", e
+			exit()
+		import ConfigParser, StringIO
+		parser = ConfigParser.SafeConfigParser()
+		parser.readfp(StringIO.StringIO(text))
+		if not parser.has_section("config"):
+			print "rtsc: project file has no config section"
+			exit()
+		if not parser.has_option("config", "main_file"):
+			print "rtsc: project file's config section has no main_file"
+		compilation_inputs = [ os.path.join(project_root, parser.get("config", "main_file")) ]
+	else:
+		project_root = "."
+		compilation_inputs = args.file
+
+	if not compilation_inputs:
+		print "rtsc: no input files"
+		exit()
+
+	with Timer("Time to parse:"):
+		with Chdir(project_root):
+			for path in compilation_inputs:
+				ctx.import_file(path)
+			statements = ctx.churn()
+
+	if args.v and ctx.cache_hits + ctx.cache_misses:
+		print green + "Parse cache hits:" + normal, "%.2f%%" % (ctx.cache_hits * 100.0 / (ctx.cache_hits + ctx.cache_misses))
 
 	ctx.save_parsing_cache()
 
 	with Timer("Time to compile:"):
 		ctx.build(statements)
 		js = ctx.write_js()
-		print js
 		import compilation
-		status, binary = compilation.quick_link(js)
-		#status, binary = compilation.remote_compile(js)
+		if args.remote:
+			if args.v:
+				print green+"Remotely compiling:"+normal, "chan=%s host=%s:%s" % (args.chan, args.host[0], args.host[1])
+			status, binary = compilation.remote_compile(js, args.chan, args.host[0], args.host[1], args.arch)
+		else:
+			if args.v:
+				print green+"Using quick-links."+normal
+			status, binary = compilation.quick_link(js, target=args.arch)
 
 	if status == "g":
-		fd = open("Main", "w")
+		fd = open(args.out, "w")
 		fd.write(binary)
 		fd.close()
-		os.chmod("Main", 0755)
+		os.chmod(args.out, 0755)
 	elif status == "e":
 		print red + "Error:" + normal
 		print binary.strip()

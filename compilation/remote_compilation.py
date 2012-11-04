@@ -52,13 +52,20 @@ def connect(channel, host="localhost", port=50002, timeout=None):
 	yes()
 	return sock, fd
 
-def remote_compile(code, timeout=None):
+def remote_channels(host, port, timeout=None):
 	uuid = "RTSCRCS_" + os.urandom(32).encode("hex")
-	sock, fd = connect(uuid, timeout=timeout)
-	sock.send("list:RTSCRCS\n")
+	sock, fd = connect(uuid, host, port, timeout=None)
+	sock.send("rooms\n")
+	rooms = fd.readline()[1:].split(":")[:-1]
+	return [room[6:] for room in rooms if room.startswith("@RTSC_")]
+
+def remote_compile(code, chan, host, port, target, timeout=None):
+	uuid = "RTSCRCS_" + os.urandom(32).encode("hex")
+	sock, fd = connect(uuid, host, port, timeout=timeout)
+	sock.send("list:@RTSC_%s\n" % chan)
 	if fd.readline() == "=\n":
 		return "f", ""
-	sock.send(":RTSCRCS:%s,%s\n" % (uuid, escape(code)))
+	sock.send(":@RTSC_%s:%s,%s,%s\n" % (chan, uuid, target, escape(code)))
 	datum = fd.readline()
 	grab = "-%s:" % uuid
 	assert datum.startswith(grab)
@@ -137,6 +144,9 @@ def local_compile(code):
 	except subprocess.CalledProcessError, e:
 		return "e", e.output
 
+def capabilities():
+	return ("elf64",)
+
 if __name__ == "__main__":
 	import sys
 	if sys.argv[1:] in ([], ["--help"]):
@@ -148,11 +158,13 @@ if __name__ == "__main__":
 		print "Connecting...",
 		sys.stdout.flush()
 
-		sock, fd = connect("RTSCRCS")
+		chan = "@RTSC_stockserv"
+
+		sock, fd = connect(chan)
 
 		print "done."
 
-		grab = "-RTSCRCS:"
+		grab = "-%s:" % chan
 
 		while True:
 			request = fd.readline()
@@ -160,9 +172,13 @@ if __name__ == "__main__":
 				continue
 			request = request[len(grab):]
 			request = unescape(request)
-			address, code = request.split(",", 1)
-			print "Got %i bytes from %r." % (len(code), address)
-			result, data = local_compile(code)
+			address, target, code = request.split(",", 2)
+			print "Got %i bytes from %r for %s." % (len(code), address, target)
+#			result, data = local_compile(code)
+			if target not in capabilities():
+				result, data = "e", "No support for given arch: %r" % target
+			else:
+				result, data = quick_link(code, target=target)
 			if result == "g":
 				print "Compiled to %i bytes." % (len(data),)
 			else:
