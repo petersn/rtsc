@@ -18,8 +18,8 @@ code.js: Makefile
 javascript.o: code.js Makefile
 	objcopy --input binary --output elf64-x86-64 --binary-architecture i386:x86-64 --rename-section .data=.unicorns code.js javascript.o
 
-prod: launch.o javascript.o opengl.o os.o Makefile
-	g++ -o prod launch.o opengl.o os.o javascript.o libs64/libv8_base.a libs64/libv8_snapshot.a -lpthread -lGLU -lSDL
+prod: launch.o javascript.o opengl.o os.o rtscfs.o Makefile
+	g++ -o prod launch.o opengl.o os.o rtscfs.o javascript.o libs64/libv8_base.a libs64/libv8_snapshot.a -lpthread -lGLU -lSDL
 
 ../quick_links/elf64_data: prod fixup.py Makefile
 	python fixup.py

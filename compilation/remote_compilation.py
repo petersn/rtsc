@@ -2,6 +2,7 @@
 # subprocess.check_output(["gmcs", "build/main.cs", "build/rtsc.cs"], stderr=subprocess.STDOUT)
 
 import socket, subprocess, os, base64, array
+import rtscfs
 
 local_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -96,6 +97,7 @@ def quick_link(code, target="elf64"):
 	get_standard_header()
 	import struct
 	code = standard_header + code
+	code = rtscfs.pack({"js" : code})
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
 	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))

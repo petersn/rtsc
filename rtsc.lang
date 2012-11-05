@@ -120,6 +120,7 @@
           <prefix>(?&lt;![\w\.])</prefix>
           <keyword>range</keyword>
           <keyword>_load_c_extension</keyword>
+          <keyword>_load_fs_string</keyword>
         </context>
       </include>
     </context>
