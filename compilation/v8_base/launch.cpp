@@ -51,8 +51,11 @@ Handle<Value> _load_fs_string(const Arguments& x) {
 	void* string = rtscfs_find(fs_image, *arg, &string_length);
 	if (string == NULL)
 		return v8::Integer::New(0);
-	Handle<String> data = String::New((char*) string, string_length);
-	return handle_scope.Close(data);
+	v8::Handle<v8::Object> s = v8::Object::New();
+	s->Set(v8::String::New("RTSC_pointer"), v8::External::Wrap(string));
+	s->Set(v8::String::New("RTSC_length"), v8::Integer::New(string_length));
+	s->Set(v8::String::New("RTSC_source"), v8::String::New(*arg, arg.length()));
+	return handle_scope.Close(s);
 }
 
 int main(int argc, char* argv[]) {

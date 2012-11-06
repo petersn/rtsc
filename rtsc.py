@@ -757,6 +757,7 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 	if args.v:
 		print green + "Parse cache size:" + normal, len(ctx.parsing_cache)
 
+	parser = None
 	if args.project:
 		project_root = os.path.dirname(os.path.realpath(args.project))
 		try:
@@ -805,7 +806,8 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		else:
 			if args.v:
 				print green+"Using quick-links."+normal
-			status, binary = compilation.quick_link(js, target=args.arch)
+			with Chdir(project_root if args.project else "."):
+				status, binary = compilation.quick_link(js, target=args.arch, config=parser)
 
 	if status == "g":
 		fd = open(args.out, "w")

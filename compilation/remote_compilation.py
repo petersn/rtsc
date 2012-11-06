@@ -1,7 +1,8 @@
 #! /usr/bin/python
 # subprocess.check_output(["gmcs", "build/main.cs", "build/rtsc.cs"], stderr=subprocess.STDOUT)
 
-import socket, subprocess, os, base64, array
+import socket, subprocess, os, base64, array, struct
+from PIL import Image
 import rtscfs
 
 local_dir = os.path.dirname(os.path.realpath(__file__))
@@ -93,11 +94,27 @@ def read_file(path):
 		read_file_cache[path] = data
 	return read_file_cache[path]
 
-def quick_link(code, target="elf64"):
+def get_file_data(path):
+	if "::" in path:
+		oper, path = path.split("::", 1)
+		if oper == "none":
+			return open(path).read()
+		elif oper == "texture":
+			img = Image.open(path)
+			img = img.convert("RGB")
+			return "\x03TEX" + struct.pack("<II", img.size[0], img.size[1]) + img.tostring()
+		else: assert False
+	return open(path).read()
+
+def quick_link(code, target="elf64", config=None):
 	get_standard_header()
 	import struct
 	code = standard_header + code
-	code = rtscfs.pack({"js" : code})
+	fs = {"js" : code}
+	if config != None and config.has_section("files"):
+		for name, value in config.items("files"):
+			fs[name] = get_file_data(value)
+	code = rtscfs.pack(fs)
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
 	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))

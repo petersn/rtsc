@@ -235,6 +235,48 @@ v8::Handle<v8::Value> opengl_poll(const v8::Arguments& x) {
 	return v8::Integer::New(0);
 }
 
+v8::Handle<v8::Value> opengl_load_image_from_string(const v8::Arguments& x) {
+	v8::HandleScope handle_scope;
+
+	GLuint texture;
+
+	v8::Handle<v8::Object> tex = x[0]->ToObject();
+	const char* data = (char*) v8::External::Unwrap(tex->Get(v8::String::New("RTSC_pointer")));
+
+	// Note that 0x58455403 == "\x03TEX", the texture magic number.
+	if (((int*)data)[0] != 0x58455403) {
+		cerr << "Loaded texture string from \"" << *v8::String::AsciiValue(tex->Get(v8::String::New("RTSC_source"))) << "\" isn't of the correct format." << endl;
+		cerr << "Did you forget a texture:: specifier in your project file?" << endl;
+		return v8::Integer::New(0);
+	}
+	int width = ((int*)data)[1], height = ((int*)data)[2];
+	data += 12;
+
+	// Standard OpenGL texture creation code
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,minFilter);
+	//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,magFilter);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+
+	gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_BGR_EXT, GL_UNSIGNED_BYTE, data);
+
+	v8::Handle<v8::Object> s = v8::Object::New();
+	s->Set(v8::String::New("RTSC_texture_num"), v8::Integer::New(texture));
+	s->Set(v8::String::New("RTSC_width"), v8::Integer::New(width));
+	s->Set(v8::String::New("RTSC_height"), v8::Integer::New(height));
+
+	return handle_scope.Close(s);
+}
+
 v8::Handle<v8::Value> opengl_load_image(const v8::Arguments& x) {
 	v8::HandleScope handle_scope;
 
@@ -314,6 +356,11 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 	v8::Handle<v8::Object> tex = args[0]->ToObject();
 	double x = args[1]->NumberValue();
 	double y = args[2]->NumberValue();
+	// Make sure the texture num is set.
+	if (not tex->Has(v8::String::New("RTSC_texture_num"))) {
+		cerr << "Attempted to draw invalid texture." << endl;
+		return v8::Integer::New(0);
+	}
 	int texture = tex->Get(v8::String::New("RTSC_texture_num"))->Int32Value();
 	int width = tex->Get(v8::String::New("RTSC_width"))->Int32Value();
 	int height = tex->Get(v8::String::New("RTSC_height"))->Int32Value();
@@ -340,6 +387,7 @@ void opengl_init(v8::Handle<v8::Object>& global) {
 	FUNC(global, quit, opengl_quit);
 	FUNC(global, poll, opengl_poll);
 	FUNC(global, load_image, opengl_load_image);
+	FUNC(global, load_image_from_string, opengl_load_image_from_string);
 	FUNC(global, begin_frame, opengl_begin_frame);
 	FUNC(global, end_frame, opengl_end_frame);
 	FUNC(global, draw_texture, opengl_draw_texture);
