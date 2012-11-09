@@ -26,9 +26,11 @@ void rtscfs_init(void* fs) {
 			unsigned int bz2_decompressed_length_verify = bz2_decompressed_length;
 //			cout << "Decompressing entry " << index << " of length " << entry->entry_size << " to " << bz2_decompressed_length << endl;
 			int success = BZ2_bzBuffToBuffDecompress(return_address, &bz2_decompressed_length_verify, (char*)(rtscfs_image + entry->entry_offset + 8), entry->entry_size - 8, 0, 0);
+			if (bz2_decompressed_length != bz2_decompressed_length_verify)
+				cerr << "BZ2 error: entry " << index << " should have been " << bz2_decompressed_length << " long, but was " << bz2_decompressed_length_verify << " long instead." << endl;
 //			cout << "Got " << success << " and " << bz2_decompressed_length_verify << " bytes out." << endl;
 			rtscfs_data_cache[index].data = return_address;
-			rtscfs_data_cache[index].size = bz2_decompressed_length;
+			rtscfs_data_cache[index].size = bz2_decompressed_length_verify;
 		} else {
 //			cout << "Passing through." << endl;
 			rtscfs_data_cache[index].data = rtscfs_image + entry->entry_offset;

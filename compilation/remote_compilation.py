@@ -5,6 +5,8 @@ import socket, subprocess, os, base64, array, struct
 from PIL import Image
 import rtscfs
 
+flag_verbose = "RTSC_VERBOSE" in os.environ
+
 local_dir = os.path.dirname(os.path.realpath(__file__))
 
 class YARCSocket:
@@ -130,17 +132,22 @@ def quick_link(code, target="elf64", config=None):
 	if config != None and config.has_section("files"):
 		for name, value in config.items("files"):
 			fs[name] = get_file_data(name, value, flags)
-			# Check if we can do better with bz2.
-			bz2_data = struct.pack("<Q", len(fs[name])) + fs[name].encode("bz2")
-			if len(bz2_data) < len(fs[name]):
-				print "Using bz2 for", name
-				flags[name] = RTSCFS_FLAG_BZ2
-				fs[name] = bz2_data
+	savings = 0
+	# Optimize the filesystem.
+	for name in fs:
+		# Check if we can do better with bz2.
+		bz2_data = struct.pack("<Q", len(fs[name])) + fs[name].encode("bz2")
+		if len(bz2_data) < len(fs[name]):
+			if flag_verbose:
+				print "(%5.2f%%)" % (100.0 * len(bz2_data) / len(fs[name]),), "Using bz2 for", name
+			flags[name] = RTSCFS_FLAG_BZ2
+			savings += len(fs[name]) - len(bz2_data)
+			fs[name] = bz2_data
 	code = rtscfs.pack(fs, flags=flags)
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
 	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))
-	symbols = { "js_size" : len(code) }
+	symbols = { "fs_size" : len(code) }
 	data = array.array("B", data)
 	# Do some fixups -- pseudo-linking!
 	for line in relocs.split("\n"):
@@ -154,6 +161,8 @@ def quick_link(code, target="elf64", config=None):
 		current_value %= 256**sizeof
 		data[addr:addr+sizeof] = array.array("B", struct.pack(format, current_value))
 	data.extend(array.array("B", code))
+	if flag_verbose and savings:
+		print "Compressed to: %5.2f%%" % (100.0 * (len(data) - savings) / len(data),)
 	# Round the binary off to the next 32-byte mark.
 	data.extend(array.array("B", [0] * (-len(data)%32)))
 	return "g", data.tostring()

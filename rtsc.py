@@ -732,6 +732,9 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		print "rtsc: cannot pass both --project and additional source files"
 		exit()
 
+	if args.v:
+		os.environ["RTSC_VERBOSE"] = "1"
+
 	# Determine the correct architecture if an arch "relative" to native is chosen.
 	if args.v:
 		print green+"Selected arch:"+normal, args.arch
