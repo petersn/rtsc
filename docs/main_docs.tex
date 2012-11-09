@@ -1,0 +1,122 @@
+\documentclass[10pt]{book}
+\usepackage{amsmath,amssymb,hyperref}
+\usepackage[margin=3cm]{geometry}
+\usepackage{listings}
+\lstset{
+  language=C,                % choose the language of the code
+%  numbers=left,                   % where to put the line-numbers
+  stepnumber=1,                   % the step between two line-numbers.        
+  numbersep=5pt,                  % how far the line-numbers are from the code
+  showspaces=false,               % show spaces adding particular underscores
+  showstringspaces=false,         % underline spaces within strings
+  showtabs=false,                 % show tabs within strings adding particular underscores
+  tabsize=4,                      % sets default tabsize to 2 spaces
+  captionpos=b,                   % sets the caption-position to bottom
+  breaklines=true,                % sets automatic line breaking
+  breakatwhitespace=true,         % sets if automatic breaks should only happen at whitespace
+%  title=\lstname,                 % show the filename of files included with \lstinputlisting;
+}
+\title{\texttt{RTSC} Manual}
+\author{Peter Schmidt-Nielsen}
+\begin{document}
+\frontmatter
+\thispagestyle{empty}
+\begin{center}
+\vspace*{5cm}
+{\Huge \texttt{RTSC} Manual} \\
+\vspace{2cm}
+{\Large Peter Schmidt-Nielsen}
+\end{center}
+\tableofcontents
+\chapter{RTSC}
+\section{Overview}
+The RTSC compiler works as follows:
+\begin{enumerate}
+\item
+A project file (\texttt{.rtsc-proj}) is read in.
+The file format is a standard .ini file, as parsed by Python's ConfigParser module.
+\item
+The section \texttt{[config]} must be present, and must contain a variable \texttt{main\_file}.
+This file is loaded, and compiled, recursing on any import statements.
+The resulting output is Javascript.
+\item
+The standard Javascript header (found at \texttt{rtsc/libs/std.js}) is prepended to the compiled Javascript, completing the Javascript executable.
+\item
+Files in the \texttt{[files]} section are included, as outlined in \ref{section_files}.
+\item
+The resultant files and Javascript are quick-linked (see \ref{section_quick_links}) into the output binary.
+\end{enumerate}
+
+\section{Quick Links}
+\label{section_quick_links}
+In order to not need to distribute a compiler or linker of any sort, RTSC has a built-in compilation mechanism called quick links.
+For each target platform, a pair of files are stored under \texttt{rtsc/quick\_links}, namely: \texttt{target\_data} and \texttt{target\_relocs}.
+%The file \texttt{target_data} contains the base quick links binary to be used.
+Quick linking proceeds as follows:
+\begin{enumerate}
+\item
+An rtscfs image (see \ref{section_rtscfs}) is created containing the game data.
+The entry \texttt{js} in this image contains the Javascript string (not null-terminated) to be executed.
+\item
+The file \texttt{target\_data} is read in.
+The file \texttt{target\_relocs} contains a sequence of relocation instructions of the form \texttt{"address,length,var\textbackslash n"}.
+Each relocation points to into \texttt{target\_data}, and specifies a variable to be added into the bytes from \texttt{address} to \texttt{address}+\texttt{length}, in little endian format.
+Currently, only the variable \texttt{fs\_size} is supported, and \texttt{fs\_size} equals the length of the rtscfs image.
+An example actual relocation file for a particular revision of the elf64 target:
+\lstinputlisting{elf64_relocs}
+\item
+The output binary is the relocated contents of \texttt{target\_data} concatenated with the rtscfs image for the binary.
+The quick links binaries have been made to expect data to be added at their ends.
+\end{enumerate}
+
+\section{File Inclusion}
+\label{section_files}
+Variable in the \texttt{[files]} section of the project file being compiled cause files to be included into the end binary.
+The syntax is:
+\begin{center}
+\texttt{var = [specifier::]path}
+\end{center}
+The data can be loaded from within RTCS with code \texttt{\_load\_fs\_data("var")}.
+If a specifier is given, it causes preprocessing of the data in \texttt{path}.
+Valid specifiers are:
+\begin{center}
+\begin{tabular}{c | l | l}
+	Name & Function & Loads with \texttt{\_load\_fs\_data} as \\\hline
+	\texttt{texture} & Loads texture data from an image file. & Special buffer object. \\
+	\texttt{config} & Parses the file as a .ini. & \texttt{\{"section":\{"var":"value",...\},...\}} \\
+	\texttt{json} & Parses the file as JSON. & Corresponding Javascript object. \\
+	\texttt{string} & Stores the path as the datum. & String object. \\
+\end{tabular}
+\end{center}
+If no specifier is given, the file is loaded unprocessed, and \texttt{\_load\_fs\_data} yields a string object containing the file's contents.
+All data included into the binary is compressed with bzip2 if doing so would render it smaller.
+
+\section{rtscfs}
+\label{section_rtscfs}
+RTSC binaries use a built-in filesystem called rtscfs to store data along with the binary.
+The rtscfs header is:
+\lstinputlisting{rtscfs_header}
+The field \texttt{fs\_offset} points to contiguous array \texttt{fs\_count} long of the following structure:
+\lstinputlisting{rtscfs_entry}
+All offsets are relative to the beginning of the original \texttt{rtscfs\_header\_t}.
+Each entry points to its own name with the fields \texttt{entry\_name\_size} and \texttt{entry\_name\_offset}.
+The entry name pointed to is guaranteed not to contain any null bytes, but is \emph{not} guaranteed to be null-terminated as placed in the file!
+The field \texttt{entry\_name\_offset} has no alignment restrictions.
+To achieve a directory structure, an entry name should contain slashes.
+It is recommended that creators of rtscfs images do \emph{not} prefix every entry name with a slash.
+
+The data contained by an entry is \texttt{entry\_size} long and pointed to by \texttt{entry\_offset}.
+The field \texttt{entry\_offset} must be aligned to a 16-byte boundary.
+
+The following flags may be listed:
+\begin{center}
+\begin{tabular}{ c | c }
+	Name & Value \\\hline
+	\texttt{RTSCFS\_FLAG\_BZ2} & 0x1
+\end{tabular}
+\end{center}
+If the flag \texttt{RTSCFS\_FLAG\_BZ2} is set, then the entry's data must be a \texttt{uint64\_t} decompressed length field followed by a valid bzip2 compressed file, complete with magic number and all.
+The decompressed length field sets the size of the buffer allocated to decompress the file into -- it must be set correctly!
+The data are decompressed transparently, and thus the \texttt{RTSCFS\_FLAG\_BZ2} flag may be set or not on any entry of any type without error.
+
+\end{document}

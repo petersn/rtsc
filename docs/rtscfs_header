@@ -1,0 +1,4 @@
+typedef struct {
+	uint64_t fs_count;
+	uint64_t fs_offset;
+} rtscfs_header_t;

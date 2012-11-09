@@ -1,0 +1,7 @@
+typedef struct {
+	uint64_t entry_name_size;
+	uint64_t entry_name_offset;
+	uint64_t entry_size;
+	uint64_t entry_offset;
+	uint64_t entry_flags;
+} rtscfs_entry_t;
