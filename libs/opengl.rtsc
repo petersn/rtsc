@@ -2,3 +2,8 @@
 
 _load_c_extension("opengl", self)
 
+def load_image(path)
+	return self.load_image_from_fs_data(_load_fs_data(path))
+
+expose load_image
+

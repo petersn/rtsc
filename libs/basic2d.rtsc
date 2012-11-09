@@ -48,7 +48,7 @@ def process_events()
 
 def draw_image(path, x, y)
 	if not textures.contains(path)
-		textures[path] = opengl.load_image_from_string(_load_fs_string(path))
+		textures[path] = opengl.load_image_from_fs_data(_load_fs_data(path))
 	opengl.draw_texture(textures[path], x, y)
 
 def mainloop()

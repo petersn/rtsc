@@ -90,8 +90,8 @@ v8::Handle<v8::Value> opengl_launch(const v8::Arguments& x) {
 	glClearDepth(1.0);
 	// The Type Of Depth Test To Do
 	glDepthFunc(GL_LESS);
-	//glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
@@ -235,22 +235,29 @@ v8::Handle<v8::Value> opengl_poll(const v8::Arguments& x) {
 	return v8::Integer::New(0);
 }
 
-v8::Handle<v8::Value> opengl_load_image_from_string(const v8::Arguments& x) {
+v8::Handle<v8::Value> opengl_load_image_from_fs_data(const v8::Arguments& x) {
 	v8::HandleScope handle_scope;
 
 	GLuint texture;
 
 	v8::Handle<v8::Object> tex = x[0]->ToObject();
-	const char* data = (char*) v8::External::Unwrap(tex->Get(v8::String::New("RTSC_pointer")));
+	if (not tex->Has(v8::String::New("RTSC_pointer"))) {
+		cerr << "Attempted opengl.load_image_from_fs_data() on something that isn't a data object." << endl;
+		return v8::Integer::New(0);
+	}
+	char* data = (char*) v8::External::Unwrap(tex->Get(v8::String::New("RTSC_pointer")));
 
 	// Note that 0x58455403 == "\x03TEX", the texture magic number.
-	if (((int*)data)[0] != 0x58455403) {
+	int magic_number = *(int*)data; data += 4;
+	if (magic_number != 0x58455403) {
 		cerr << "Loaded texture string from \"" << *v8::String::AsciiValue(tex->Get(v8::String::New("RTSC_source"))) << "\" isn't of the correct format." << endl;
 		cerr << "Did you forget a texture:: specifier in your project file?" << endl;
 		return v8::Integer::New(0);
 	}
-	int width = ((int*)data)[1], height = ((int*)data)[2];
-	data += 12;
+	int width = *(int*)data; data += 4;
+	int height = *(int*)data; data += 4;
+	int bpp = *(unsigned char*)data; data += 1;
+	data += 3;
 
 	// Standard OpenGL texture creation code
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
@@ -267,7 +274,11 @@ v8::Handle<v8::Value> opengl_load_image_from_string(const v8::Arguments& x) {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
-	gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_BGR_EXT, GL_UNSIGNED_BYTE, data);
+	if (bpp == 3) {
+		gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_BGR_EXT, GL_UNSIGNED_BYTE, data);
+	} else {
+		gluBuild2DMipmaps(GL_TEXTURE_2D, 4, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
+	}
 
 	v8::Handle<v8::Object> s = v8::Object::New();
 	s->Set(v8::String::New("RTSC_texture_num"), v8::Integer::New(texture));
@@ -277,7 +288,7 @@ v8::Handle<v8::Value> opengl_load_image_from_string(const v8::Arguments& x) {
 	return handle_scope.Close(s);
 }
 
-v8::Handle<v8::Value> opengl_load_image(const v8::Arguments& x) {
+v8::Handle<v8::Value> opengl_load_image_from_file(const v8::Arguments& x) {
 	v8::HandleScope handle_scope;
 
 	GLuint texture;
@@ -386,8 +397,8 @@ void opengl_init(v8::Handle<v8::Object>& global) {
 	FUNC(global, option, opengl_option);
 	FUNC(global, quit, opengl_quit);
 	FUNC(global, poll, opengl_poll);
-	FUNC(global, load_image, opengl_load_image);
-	FUNC(global, load_image_from_string, opengl_load_image_from_string);
+	FUNC(global, load_image_from_file, opengl_load_image_from_file);
+	FUNC(global, load_image_from_fs_data, opengl_load_image_from_fs_data);
 	FUNC(global, begin_frame, opengl_begin_frame);
 	FUNC(global, end_frame, opengl_end_frame);
 	FUNC(global, draw_texture, opengl_draw_texture);

@@ -44,13 +44,15 @@ Handle<Value> _load_c_extension(const Arguments& x) {
 	return v8::Integer::New(0);
 }
 
-Handle<Value> _load_fs_string(const Arguments& x) {
+Handle<Value> _load_fs_data(const Arguments& x) {
 	HandleScope handle_scope;
 	v8::String::AsciiValue arg(x[0]);
 	size_t string_length;
 	void* string = rtscfs_find(fs_image, *arg, &string_length);
-	if (string == NULL)
+	if (string == NULL) {
+		cerr << "Couldn't load fs data: \"" << *arg << "\"" << endl;
 		return v8::Integer::New(0);
+	}
 	v8::Handle<v8::Object> s = v8::Object::New();
 	s->Set(v8::String::New("RTSC_pointer"), v8::External::Wrap(string));
 	s->Set(v8::String::New("RTSC_length"), v8::Integer::New(string_length));
@@ -68,7 +70,7 @@ int main(int argc, char* argv[]) {
 	SCOPE(global);
 	FUNC2(global, print, print);
 	FUNC2(global, _load_c_extension, _load_c_extension);
-	FUNC2(global, _load_fs_string, _load_fs_string);
+	FUNC2(global, _load_fs_data, _load_fs_data);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.

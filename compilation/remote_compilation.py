@@ -94,6 +94,12 @@ def read_file(path):
 		read_file_cache[path] = data
 	return read_file_cache[path]
 
+def byte_swap(s, bpp):
+	s = array.array("B", s)
+	for i in xrange(0, len(s), bpp):
+		s[i], s[i+2] = s[i+2], s[i]
+	return s.tostring()
+
 def get_file_data(path):
 	if "::" in path:
 		oper, path = path.split("::", 1)
@@ -101,8 +107,15 @@ def get_file_data(path):
 			return open(path).read()
 		elif oper == "texture":
 			img = Image.open(path)
-			img = img.convert("RGB")
-			return "\x03TEX" + struct.pack("<II", img.size[0], img.size[1]) + img.tostring()
+			if img.mode in ("LA", "RGBA"):
+				data_str = img.convert("RGBA").tostring()
+				bpp = 4
+			else:
+				data_str = img.convert("RGB").tostring()
+				bpp = 3
+			# Convert RGB to BGR and RGBA to BGRA, as naively used by OpenGL.
+			data_str = byte_swap(data_str, bpp)
+			return "\x03TEX" + struct.pack("<IIB", img.size[0], img.size[1], bpp) + "\0\0\0" + data_str
 		else: assert False
 	return open(path).read()
 
