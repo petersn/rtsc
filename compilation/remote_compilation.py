@@ -100,7 +100,9 @@ def byte_swap(s, bpp):
 		s[i], s[i+2] = s[i+2], s[i]
 	return s.tostring()
 
-def get_file_data(path):
+RTSCFS_FLAG_BZ2 = 1<<0
+
+def get_file_data(name, path, flags):
 	if "::" in path:
 		oper, path = path.split("::", 1)
 		if oper == "none":
@@ -124,10 +126,17 @@ def quick_link(code, target="elf64", config=None):
 	import struct
 	code = standard_header + code
 	fs = {"js" : code}
+	flags = {}
 	if config != None and config.has_section("files"):
 		for name, value in config.items("files"):
-			fs[name] = get_file_data(value)
-	code = rtscfs.pack(fs)
+			fs[name] = get_file_data(name, value, flags)
+			# Check if we can do better with bz2.
+			bz2_data = struct.pack("<Q", len(fs[name])) + fs[name].encode("bz2")
+			if len(bz2_data) < len(fs[name]):
+				print "Using bz2 for", name
+				flags[name] = RTSCFS_FLAG_BZ2
+				fs[name] = bz2_data
+	code = rtscfs.pack(fs, flags=flags)
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
 	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))

@@ -13,9 +13,6 @@ using namespace std;
 
 extern unsigned long long _binary_code_js_start;
 
-void* fs_image;
-size_t fs_image_length;
-
 Handle<Value> print(const Arguments& x) {
 	int length = x.Length();
 	for (int ii=0; ii<length; ii++) {
@@ -48,7 +45,7 @@ Handle<Value> _load_fs_data(const Arguments& x) {
 	HandleScope handle_scope;
 	v8::String::AsciiValue arg(x[0]);
 	size_t string_length;
-	void* string = rtscfs_find(fs_image, *arg, &string_length);
+	void* string = rtscfs_find(*arg, &string_length);
 	if (string == NULL) {
 		cerr << "Couldn't load fs data: \"" << *arg << "\"" << endl;
 		return v8::Integer::New(0);
@@ -81,12 +78,14 @@ int main(int argc, char* argv[]) {
 	Context::Scope context_scope(context);
 
 	// Load up the Javascript source that is bundled in our binary.
-	fs_image_length = ((unsigned long long*)&_binary_code_js_start)[1];
-	fs_image = (void*)_binary_code_js_start;
+	size_t fs_image_length = ((unsigned long long*)&_binary_code_js_start)[1];
+	void* fs_image = (void*)_binary_code_js_start;
+
+	rtscfs_init(fs_image);
 
 	// Find the Javascript within this structure.
 	size_t javascript_string_length;
-	void* javascript_string = rtscfs_find(fs_image, "js", &javascript_string_length);
+	void* javascript_string = rtscfs_find("js", &javascript_string_length);
 
 	if (javascript_string == NULL) {
 		cerr << "Bundled rtscfs image has no \"js\" entry." << endl;
