@@ -57,6 +57,3 @@ void* rtscfs_find(const char* key, size_t* length) {
 	return NULL;
 }
 
-/*
-int 
-*/

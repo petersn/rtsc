@@ -216,7 +216,7 @@ print green + "Binary relocations:" + normal
 fd = open("../quick_links/elf64_relocs", "w")
 for loc in relocation_addresses:
 	print "\t[%08x:%08x] += fs_size" % (loc, loc+8)
-	fd.write("%s,8,fs_size\n" % loc)
+	fd.write("add,%s,8,fs_size\n" % loc)
 #fd.write("%s,8,js_size\n" % (add_length,))
 fd.close()
 

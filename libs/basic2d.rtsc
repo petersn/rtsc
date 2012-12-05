@@ -55,7 +55,7 @@ def mainloop()
 	while true
 		process_events()
 		for key, value in keys_held
-			if key != "RTSC_contains" and keys_held[key]
+			if keys_held[key]
 				for obj in callback_dict[["key", "held"]]
 					__inline_javascript__
 						RTSC_obj[1].call(RTSC_obj[0], { "key" : RTSC_key });

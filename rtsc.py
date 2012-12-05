@@ -521,8 +521,8 @@ RTSC_object_lists[%(ident)s] = [];
 					keyvar, valuevar = code[2].string, code[3].string
 					self[keyvar] = keyvar = Variable(keyvar)
 					self[valuevar] = valuevar = Variable(valuevar)
-					loop_starter = "for (var %s in %s) {\n\tvar %s = %s[%s];\n" % \
-						(keyvar.identifier(), itr[1], valuevar.identifier(), itr[1], keyvar.identifier())
+					loop_starter = "for (var %s in %s) {\n\tif (! %s.hasOwnProperty(%s)) continue;\n\tvar %s = %s[%s];\n" % \
+						(keyvar.identifier(), itr[1], itr[1], keyvar.identifier(), valuevar.identifier(), itr[1], keyvar.identifier())
 					return (itr[0] + loop_starter + indent(self.write_for(code[5])[0]) + "}\n", "")
 				else: assert False
 			elif code[1].string == "while":
@@ -691,15 +691,13 @@ if __name__ == "__main__":
 			address, port = s, 50002
 		return address, port
 
-	default_binary = "Main.exe" if "win" in determine_arch() else "Main"
-
 	epilog = """
 If --project is used, command line options supercede options selected in the project file.
 The options --{host,chan,key} are equivalent to the project file options {host,chan,key} in the [config] section.
 """
 
 	parser = argparse.ArgumentParser(prog="rtsc", description="RTSC command line compiler, v%s.%s" % version, epilog=epilog)
-	parser.add_argument("-o", "--out", default=default_binary, help="set the output file (default: Main, Main.exe on win)")
+	parser.add_argument("-o", "--out", default=None, help="set the output file (default: Main, Main.exe on win)")
 	parser.add_argument("-v", action="store_const", const=True, default=False, help="be verbose")
 	parser.add_argument("--arch", default="native", choices=("native", "32", "64", "elf32", "elf64", "win32", "win64", "mac32", "mac64"), help="choose an output architecture (default: native)")
 	parser.add_argument("--project", help="input .rtsc-proj project file, in leu of sources")
@@ -749,6 +747,10 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		args.arch = real
 		if args.v:
 			print green+"Using arch:"+normal, args.arch
+
+	default_binary = "Main.exe" if "win" in args.arch else "Main"
+	if args.out == None:
+		args.out = default_binary
 
 	with Timer("Time to load:"):
 		ctx = Compiler()

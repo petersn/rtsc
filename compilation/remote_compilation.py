@@ -120,6 +120,8 @@ def get_file_data(name, path, flags):
 			# Convert RGB to BGR and RGBA to BGRA, as naively used by OpenGL.
 			data_str = byte_swap(data_str, bpp)
 			return "\x03TEX" + struct.pack("<IIB", img.size[0], img.size[1], bpp) + "\0\0\0" + data_str
+		elif oper == "jpeg2k":
+			pass
 		else: assert False
 	return open(path).read()
 
@@ -145,21 +147,29 @@ def quick_link(code, target="elf64", config=None):
 			fs[name] = bz2_data
 	code = rtscfs.pack(fs, flags=flags)
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
-	data = read_file(os.path.join(local_dir, "quick_links", target+"_data"))
-	relocs = read_file(os.path.join(local_dir, "quick_links", target+"_relocs"))
+	quick_links_root = os.path.join(local_dir, "quick_links", target)
+	data   = read_file(quick_links_root+"_data")
+	relocs = read_file(quick_links_root+"_relocs")
 	symbols = { "fs_size" : len(code) }
 	data = array.array("B", data)
 	# Do some fixups -- pseudo-linking!
 	for line in relocs.split("\n"):
 		line = line.split("#")[0].strip()
 		if not line: continue
-		addr, sizeof, symbol = line.split(",")
-		addr, sizeof, symbol = int(addr), int(sizeof), symbol.strip()
-		format = sizeof_lookup[sizeof]
-		current_value = sum(c*256**(7-i) for i, c in enumerate(data[addr:addr+sizeof]))
-		current_value += symbols[symbol]
-		current_value %= 256**sizeof
-		data[addr:addr+sizeof] = array.array("B", struct.pack(format, current_value))
+		command = line.split(",")
+		if command[0] == "add":
+			addr, sizeof, symbol = command[1:]
+			addr, sizeof, symbol = int(addr), int(sizeof), symbol.strip()
+			format = sizeof_lookup[sizeof]
+			current_value = sum(c*256**(i) for i, c in enumerate(data[addr:addr+sizeof]))
+			current_value += symbols[symbol]
+			current_value %= 256**sizeof
+			data[addr:addr+sizeof] = array.array("B", struct.pack(format, current_value))
+		elif command[0] == "nullpad":
+			modulus = int(command[1])
+			code += ("\0" * (-len(code)%modulus))
+			symbols["fs_size"] = len(code)
+		else: assert False, repr(command)
 	data.extend(array.array("B", code))
 	if flag_verbose and savings:
 		print "Compressed to: %5.2f%%" % (100.0 * (len(data) - savings) / len(data),)
@@ -195,7 +205,7 @@ def local_compile(code):
 		return "e", e.output
 
 def capabilities():
-	return ("elf64",)
+	return ("elf64", "win32")
 
 if __name__ == "__main__":
 	import sys

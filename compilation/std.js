@@ -7,7 +7,7 @@ RTSC_object_lists = {};
 
 Array.prototype.RTSC_push = Array.prototype.push;
 Object.prototype.RTSC_contains = function (x) {
-	return x in this;
+	return this.hasOwnProperty(x);
 };
 
 function defaultFillPrototype(proto) {
