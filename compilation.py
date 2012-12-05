@@ -180,7 +180,7 @@ def quick_link(code, target="elf64", config=None):
 header_write_time = -float("inf")
 def get_standard_header():	
 	global standard_header, header_write_time
-	std_js_path = os.path.join(local_dir, "std.js")
+	std_js_path = os.path.join(local_dir, "data", "std.js")
 	newest = os.stat(std_js_path).st_mtime
 	if newest > header_write_time:
 		standard_header = open(std_js_path).read()

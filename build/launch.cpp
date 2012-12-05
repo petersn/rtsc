@@ -11,7 +11,7 @@
 using namespace v8;
 using namespace std;
 
-extern unsigned long long _binary_code_js_start;
+unsigned long long _binary_code_js_start __attribute__((section(".unicorn")));
 
 Handle<Value> print(const Arguments& x) {
 	int length = x.Length();

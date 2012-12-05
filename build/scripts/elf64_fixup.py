@@ -1,8 +1,5 @@
 #! /usr/bin/python
-# To build `prod' as used by this.
-# These commands should also be in the makefile under the recipe for prod -- use those instead if these disagree.
-# objcopy --input binary --output elf64-x86-64 --binary-architecture i386:x86-64 --rename-section .data=.unicorns code.js javascript.o
-# g++ -o prod launch.o opengl.o os.o javascript.o libs64/libv8_base.a libs64/libv8_snapshot.a -lpthread -lGLU -lSDL
+# Produces a quick_links executable.
 
 import struct, pprint
 
@@ -92,7 +89,7 @@ def read_str(data, index):
 	return data[index:i]
 
 # Read in our ELF binary.
-data = open("prod").read()
+data = open("elf64_base").read()
 header = parse(elf_header_format, data)
 print green + "ELF header:" + normal
 pprint.pprint(header)
@@ -134,8 +131,8 @@ relocation_addresses = []
 
 # Find the difference between 
 for section in section_headers:
-	if section["sh_name"] == ".unicorns":
-		print green + "Found .unicorns section." + normal
+	if section["sh_name"] == ".unicorn":
+		print green + "Found .unicorn section." + normal
 		offset, size = section["sh_offset"], section["sh_size"]
 		addr = section["OFFSET"]
 		# Compute the ELF load offset.
@@ -152,7 +149,7 @@ print green + "Javascript load VMA:" + normal, hex(javascript_load_vma)
 
 SHT_SYMTAB = 2
 
-# Find the symbol table (SYMTAB) section to modify the .unicorns pointer, _binary_code_js_start.
+# Find the symbol table (SYMTAB) section to modify the .unicorn pointer, _binary_code_js_start.
 for section in section_headers:
 	if section["sh_type"] == SHT_SYMTAB:
 		addr = section["sh_offset"]

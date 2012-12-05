@@ -24,8 +24,8 @@ local_dir = os.path.dirname(os.path.realpath(__file__))
 
 class Compiler:
 	BYTECODE_IDENTIFIER = "\x03RTSCv01"
-	grammar = open(os.path.join(local_dir, "grammar.bnf")).read()
-	lexer = open(os.path.join(local_dir, "lexer.rxl")).read()
+	grammar = open(os.path.join(local_dir, "data", "grammar.bnf")).read()
+	lexer = open(os.path.join(local_dir, "data", "lexer.rxl")).read()
 	js_header = """// RTSC Generated JS code.
 """
 	js_footer = """
@@ -59,7 +59,7 @@ class Compiler:
 
 	def load_parsing_cache(self, path=None):
 		if path == None:
-			path = os.path.join(local_dir, "parse_cache")
+			path = os.path.join(local_dir, "data", "parse_cache")
 		data = open(path).read()
 		stmts = self.process_bytecode(data)
 		assert stmts[0] == "parse_cache"
@@ -69,7 +69,7 @@ class Compiler:
 
 	def save_parsing_cache(self, path=None):
 		if path == None:
-			path = os.path.join(local_dir, "parse_cache")
+			path = os.path.join(local_dir, "data", "parse_cache")
 		stmts = ["parse_cache"] + [["cache", list(a), b] for a, b in self.parsing_cache.iteritems()]
 		bc = self.produce_bytecode(stmts)
 		a = self.process_bytecode(bc)
