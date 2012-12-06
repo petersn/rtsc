@@ -1,6 +1,6 @@
 # Makefile for RTSC quick-links binaries.
 
-CPPFLAGS = -O3 -Wall -Iinclude `sdl-config --cflags`
+CPPFLAGS = -g -O3 -Wall -Iinclude `sdl-config --cflags`
 
 # To cross-compile for Windows, set MINGW_CXX to your MinGW g++.
 # Or set the environment variable appropriately.
@@ -33,7 +33,7 @@ ELF64_LIBS = lib/elf64/libv8_base.a lib/elf64/libv8_snapshot.a lib/elf64/libbz2.
 
 elf64_base: $(OBJECTS) Makefile
 	$(CXX) -o $@ $(OBJECTS) $(ELF64_LIBS)
-	strip $(STRIP_ARGS) $@
+#	strip $(STRIP_ARGS) $@
 
 .PHONY: elf64
 elf64: elf64_base Makefile
@@ -45,7 +45,7 @@ WIN32_LIBS = lib/win32/libbz2.a lib/win32/libv8_base.a lib/win32/libv8_snapshot.
 
 win32_base.exe: $(OBJECTS) Makefile
 	$(CXX) -o $@ $(OBJECTS) $(WIN32_LIBS)
-	strip $(STRIP_ARGS) $@
+#	strip $(STRIP_ARGS) $@
 
 .PHONY: win32_vars
 win32_vars:

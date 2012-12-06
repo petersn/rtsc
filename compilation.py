@@ -131,9 +131,13 @@ def quick_link(code, target="elf64", config=None):
 	code = standard_header + code
 	fs = {"js" : code}
 	flags = {}
-	if config != None and config.has_section("files"):
-		for name, value in config.items("files"):
-			fs[name] = get_file_data(name, value, flags)
+	if config != None:
+		if config.has_section("files"):
+			for name, value in config.items("files"):
+				fs[name] = get_file_data(name, value, flags)
+		if config.has_section("vars"):
+			for name, value in config.items("vars"):
+				fs[name] = value.strip()
 	savings = 0
 	# Optimize the filesystem.
 	for name in fs:

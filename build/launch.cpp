@@ -63,6 +63,25 @@ Handle<Value> _load_fs_data(const Arguments& x) {
 	return handle_scope.Close(s);
 }
 
+Handle<Value> _fs_data_length(const Arguments& x) {
+	HandleScope handle_scope;
+	v8::String::AsciiValue arg(x[0]);
+	size_t string_length;
+	void* string = rtscfs_find(*arg, &string_length);
+	return v8::Integer::New(string == NULL ? -1 : string_length);
+}
+
+Handle<Value> _data_to_string(const Arguments& x) {
+	HandleScope handle_scope;
+	Handle<Object> data = x[0]->ToObject();
+	if (not data->Has(v8::String::New("RTSC_pointer"))) {
+		cerr << "Attempted _data_to_string() on something that isn't a data object." << endl;
+	}
+	char* data_ptr = (char*) v8::External::Unwrap(data->Get(v8::String::New("RTSC_pointer")));
+	int length = data->Get(v8::String::New("RTSC_length"))->Int32Value();
+	return v8::String::New(data_ptr, length);
+}
+
 int main(int argc, char* argv[]) {
 	// Create a stack-allocated handle scope.
 	HandleScope handle_scope;
@@ -74,6 +93,8 @@ int main(int argc, char* argv[]) {
 	FUNC2(global, print, print);
 	FUNC2(global, _load_c_extension, _load_c_extension);
 	FUNC2(global, _load_fs_data, _load_fs_data);
+	FUNC2(global, _fs_data_length, _fs_data_length);
+	FUNC2(global, _data_to_string, _data_to_string);
 
 	// Each processor gets its own context so different processors
 	// do not affect each other.

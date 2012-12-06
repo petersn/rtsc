@@ -531,6 +531,8 @@ RTSC_object_lists[%(ident)s] = [];
 			elif code[1].string == "if":
 				expr = self.write_for(code[2])
 				return (expr[0] + "if (%s) {\n%s}\n" % (expr[1], indent(self.write_for(code[3])[0])), "")
+			elif code[1].string == "else":
+				return ("else {\n%s}\n" % (indent(self.write_for(code[2])[0])), "")
 		elif code[0] == "declaration":
 			type_of = self.type_code(code[1])
 			for dec_unit in code[2:]:

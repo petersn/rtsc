@@ -79,6 +79,7 @@ loop = "spec:reserved:for" "type:token" "spec:reserved:in"~ expr
 loop = "spec:reserved:for" "type:token" "spec:symbol:,"~ "type:token" "spec:reserved:in"~ expr
 loop = "spec:reserved:while" expr
 loop = "spec:reserved:if" expr
+loop = "spec:reserved:else"
 
 class = "spec:reserved:class"~ "type:token"
 import = "spec:reserved:import"~ token_sequence

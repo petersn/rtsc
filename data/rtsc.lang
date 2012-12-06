@@ -106,6 +106,7 @@
           <keyword>for</keyword>
           <keyword>while</keyword>
           <keyword>if</keyword>
+          <keyword>else</keyword>
           <keyword>in</keyword>
           <keyword>expose</keyword>
           <keyword>__inline_javascript__</keyword>
@@ -121,6 +122,8 @@
           <keyword>range</keyword>
           <keyword>_load_c_extension</keyword>
           <keyword>_load_fs_data</keyword>
+          <keyword>_fs_data_length</keyword>
+          <keyword>_data_to_string</keyword>
         </context>
       </include>
     </context>

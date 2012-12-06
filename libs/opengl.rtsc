@@ -2,8 +2,32 @@
 
 _load_c_extension("opengl", self)
 
+self.window_title = "RTSC Game"
+self.taskbar_name = "RTSC Game"
+
+# Check to see if a default window_title or taskbar_name have been set.
+window_title = _fs_data_length("window_title")
+if window_title != -1
+	self.window_title = _data_to_string(_load_fs_data("window_title"))
+	# Unless otherwise specified, by default the window title becomes the taskbar name.
+	self.taskbar_name = self.window_title
+
+taskbar_name = _fs_data_length("taskbar_name")
+if taskbar_name != -1
+	self.taskbar_name = _data_to_string(_load_fs_data("taskbar_name"))
+
 def load_image(path)
 	return self.load_image_from_fs_data(_load_fs_data(path))
 
-expose load_image
+__inline_javascript__
+	var native_opengl_launch = this.RTSC_launch;
+	var stored_this = this;
+	function RTSC_launch() {
+		native_opengl_launch.apply(this, arguments);
+		# Capture the local values for use.
+		stored_this.RTSC_set_window_title(stored_this.RTSC_window_title);
+		stored_this.RTSC_set_taskbar_name(stored_this.RTSC_taskbar_name);
+	}
+
+expose load_image, launch
 

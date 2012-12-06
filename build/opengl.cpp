@@ -409,6 +409,22 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 	return v8::Integer::New(0);
 }
 
+v8::Handle<v8::Value> opengl_set_window_title(const v8::Arguments& args) {
+	char *title, *icon;
+	SDL_WM_GetCaption(&title, &icon);
+	v8::String::AsciiValue new_title(args[0]);
+	SDL_WM_SetCaption(*new_title, icon);
+	return v8::Integer::New(0);
+}
+
+v8::Handle<v8::Value> opengl_set_taskbar_name(const v8::Arguments& args) {
+	char *title, *icon;
+	SDL_WM_GetCaption(&title, &icon);
+	v8::String::AsciiValue new_icon(args[0]);
+	SDL_WM_SetCaption(title, *new_icon);
+	return v8::Integer::New(0);
+}
+
 void opengl_init(v8::Handle<v8::Object>& global) {
 	//SCOPE(opengl);
 	//SET(global, opengl, opengl);
@@ -421,5 +437,7 @@ void opengl_init(v8::Handle<v8::Object>& global) {
 	FUNC(global, begin_frame, opengl_begin_frame);
 	FUNC(global, end_frame, opengl_end_frame);
 	FUNC(global, draw_texture, opengl_draw_texture);
+	FUNC(global, set_window_title, opengl_set_window_title);
+	FUNC(global, set_taskbar_name, opengl_set_taskbar_name);
 }
 
