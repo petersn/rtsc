@@ -1,11 +1,16 @@
 # Makefile for RTSC quick-links binaries.
 
-CPPFLAGS = -g -Wall -Iinclude `sdl-config --cflags`
+CPPFLAGS = -O3 -Wall -Iinclude `sdl-config --cflags`
 
 # To cross-compile for Windows, set MINGW_CXX to your MinGW g++.
 # Or set the environment variable appropriately.
-WIN32_CXX = i586-mingw32msvc-g++
+WIN32_CXX   = i586-mingw32msvc-g++
 WIN32_CPPFLAGS = -Iinclude/win32
+
+# Under Linux this seems to be needed to prevent the .unicorn section from being completely emptied.
+STRIP_ARGS = --keep-symbol=fs_image_vma_pointer
+
+OBJECTS = launch.o rtscfs.o os.o opengl.o
 
 help:
 	@echo RTSC quick-links makefile.
@@ -26,8 +31,9 @@ clean:
 
 ELF64_LIBS = lib/elf64/libv8_base.a lib/elf64/libv8_snapshot.a lib/elf64/libbz2.a -lpthread -lGLU -lSDL
 
-elf64_base: launch.o opengl.o os.o rtscfs.o Makefile
-	$(CXX) -o $@ launch.o opengl.o os.o rtscfs.o $(ELF64_LIBS)
+elf64_base: $(OBJECTS) Makefile
+	$(CXX) -o $@ $(OBJECTS) $(ELF64_LIBS)
+	strip $(STRIP_ARGS) $@
 
 .PHONY: elf64
 elf64: elf64_base Makefile
@@ -35,15 +41,16 @@ elf64: elf64_base Makefile
 
 ### Windows compilation.
 
-WIN32_LIBS = lib/win32/libbz2.a lib/win32/libv8_base.a lib/win32/libv8_snapshot.a lib/win32/libv8_nosnapshot.a lib/win32/winmm.lib lib/win32/ws2_32.lib lib/win32/libSDL.dll.a lib/win32/opengl32.lib lib/win32/glu32.lib
+WIN32_LIBS = lib/win32/libbz2.a lib/win32/libv8_base.a lib/win32/libv8_snapshot.a lib/win32/winmm.lib lib/win32/ws2_32.lib lib/win32/libSDL.dll.a lib/win32/opengl32.lib lib/win32/glu32.lib
 
-win32_base.exe: launch.o opengl.o os.o rtscfs.o Makefile
-	$(CXX) -o $@ launch.o opengl.o os.o rtscfs.o $(WIN32_LIBS)
+win32_base.exe: $(OBJECTS) Makefile
+	$(CXX) -o $@ $(OBJECTS) $(WIN32_LIBS)
+	strip $(STRIP_ARGS) $@
 
 .PHONY: win32_vars
 win32_vars:
-	$(eval CPPFLAGS += $(WIN32_CPPFLAGS))
 	$(eval CXX := $(WIN32_CXX))
+	$(eval CPPFLAGS += $(WIN32_CPPFLAGS))
 
 .PHONY: win32
 win32: win32_vars win32_base.exe Makefile

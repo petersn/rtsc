@@ -16,7 +16,8 @@ using namespace std;
 int _useless_filler_variable __attribute__((section(".ponies")));
 #endif
 
-unsigned long long _binary_code_js_start __attribute__((section(".unicorn")));
+// This variable will be overwritten in the binary by a fixup script.
+void* fs_image_vma_pointer __attribute__((section(".unicorn"))) = (void*) 0xdeadbeef;
 
 Handle<Value> print(const Arguments& x) {
 	int length = x.Length();
@@ -82,11 +83,8 @@ int main(int argc, char* argv[]) {
 	// running the game script.
 	Context::Scope context_scope(context);
 
-	// Load up the Javascript source that is bundled in our binary.
-	//size_t fs_image_length = ((unsigned long long*)&_binary_code_js_start)[1];
-	void* fs_image = (void*)_binary_code_js_start;
-
-	rtscfs_init(fs_image);
+	// Load up the rtscfs that is bundled in our binary, and loaded into memory.
+	rtscfs_init(fs_image_vma_pointer);
 
 	// Find the Javascript within this structure.
 	size_t javascript_string_length;

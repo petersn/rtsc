@@ -149,7 +149,7 @@ print green + "Javascript load VMA:" + normal, hex(javascript_load_vma)
 
 SHT_SYMTAB = 2
 
-# Find the symbol table (SYMTAB) section to modify the .unicorn pointer, _binary_code_js_start.
+# Find the symbol table (SYMTAB) section to modify the .unicorn pointer, fs_image_vma_pointer.
 for section in section_headers:
 	if section["sh_type"] == SHT_SYMTAB:
 		addr = section["sh_offset"]
@@ -158,7 +158,7 @@ for section in section_headers:
 		while addr < section["sh_offset"] + section["sh_size"]:
 			entry = parse(symbol_entry_format, data[addr:])
 			entry["st_name"] = read_str(strings_base, entry["st_name"])
-			if entry["st_name"] == "_binary_code_js_start":
+			if entry["st_name"] == "fs_image_vma_pointer":
 				print green + "Found symbol to edit:" + normal
 				pprint.pprint(entry)
 				pointer_target = entry["st_value"]
@@ -214,6 +214,5 @@ fd = open("../quick_links/elf64_relocs", "w")
 for loc in relocation_addresses:
 	print "\t[%08x:%08x] += fs_size" % (loc, loc+8)
 	fd.write("add,%s,8,fs_size\n" % loc)
-#fd.write("%s,8,js_size\n" % (add_length,))
 fd.close()
 
