@@ -27,3 +27,8 @@ OS specific instructions are detailed:
 Somehow compile/download `libbz2.a`, `libv8_base.a`, and `libv8_snapshot.a`, then place them into `lib/elf64/`.
 Under `build/`, `make elf64`.
 
+## Windows (win32)
+
+I did it, but it was really nasty.
+To document later.
+
