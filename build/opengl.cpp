@@ -3,9 +3,28 @@
 #include <string.h>
 #include "opengl.h"
 
-#include <SDL/SDL.h>
+#ifdef WIN32
+// This malloc.h include is before SDL.h so that alloca will already be defined.
+// Otherwise, SDL.h tries to include alloca.h, and fails.
+# include <malloc.h>
+# include <SDL.h>
+#else
+# include <SDL/SDL.h>
+#endif
+
 #include <GL/gl.h>
 #include <GL/glu.h>
+
+// On Windows we may need to patch up these missing definitions.
+#ifdef WIN32
+# ifndef GL_BGR
+#  define GL_BGR  0x80E0
+# endif
+# ifndef GL_BGRA
+#  define GL_BGRA 0x80E1
+# endif
+#endif
+
 
 SDL_Surface* screen;
 int mouse_x, mouse_y;
@@ -275,9 +294,9 @@ v8::Handle<v8::Value> opengl_load_image_from_fs_data(const v8::Arguments& x) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
 	if (bpp == 3) {
-		gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_BGR_EXT, GL_UNSIGNED_BYTE, data);
+		gluBuild2DMipmaps(GL_TEXTURE_2D, 3, width, height, GL_BGR, GL_UNSIGNED_BYTE, data);
 	} else {
-		gluBuild2DMipmaps(GL_TEXTURE_2D, 4, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
+		gluBuild2DMipmaps(GL_TEXTURE_2D, 4, width, height, GL_BGRA, GL_UNSIGNED_BYTE, data);
 	}
 
 	v8::Handle<v8::Object> s = v8::Object::New();
@@ -320,7 +339,7 @@ v8::Handle<v8::Value> opengl_load_image_from_file(const v8::Arguments& x) {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 
-	gluBuild2DMipmaps(GL_TEXTURE_2D, 3, bmpFile->w, bmpFile->h, GL_BGR_EXT, GL_UNSIGNED_BYTE, bmpFile->pixels);
+	gluBuild2DMipmaps(GL_TEXTURE_2D, 3, bmpFile->w, bmpFile->h, GL_BGR, GL_UNSIGNED_BYTE, bmpFile->pixels);
 
 	v8::Handle<v8::Object> s = v8::Object::New();
 	s->Set(v8::String::New("RTSC_texture_num"), v8::Integer::New(texture));

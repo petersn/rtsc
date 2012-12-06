@@ -11,6 +11,11 @@
 using namespace v8;
 using namespace std;
 
+// On Windows we need an extra section to reuse for loading user data.
+#ifdef WIN32
+int _useless_filler_variable __attribute__((section(".ponies")));
+#endif
+
 unsigned long long _binary_code_js_start __attribute__((section(".unicorn")));
 
 Handle<Value> print(const Arguments& x) {
@@ -78,7 +83,7 @@ int main(int argc, char* argv[]) {
 	Context::Scope context_scope(context);
 
 	// Load up the Javascript source that is bundled in our binary.
-	size_t fs_image_length = ((unsigned long long*)&_binary_code_js_start)[1];
+	//size_t fs_image_length = ((unsigned long long*)&_binary_code_js_start)[1];
 	void* fs_image = (void*)_binary_code_js_start;
 
 	rtscfs_init(fs_image);

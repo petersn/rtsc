@@ -1,18 +1,51 @@
+# Makefile for RTSC quick-links binaries.
 
 CPPFLAGS = -g -Wall -Iinclude `sdl-config --cflags`
 
-all: elf64
+# To cross-compile for Windows, set MINGW_CXX to your MinGW g++.
+# Or set the environment variable appropriately.
+WIN32_CXX = i586-mingw32msvc-g++
+WIN32_CPPFLAGS = -Iinclude/win32
+
+help:
+	@echo RTSC quick-links makefile.
+	@echo
+	@echo Valid targets: clean, elf64, win32
+	@echo
+	@echo When building for win32:
+	@echo Make sure to change CXX in the Makefile to point to MinGW\'s g++.
+	@echo
+	@echo Before switching build targets \(elf64, win32\), make sure to clean!
+	@echo Otherwise, g++ will try to reuse the previosu incompatible .o files.
 
 .PHONY: clean
 clean:
-	rm -f *.o elf64_base
+	rm -f *.o elf64_base win32_base.exe
 
-# Linux compilation.
+### Linux compilation.
+
+ELF64_LIBS = lib/elf64/libv8_base.a lib/elf64/libv8_snapshot.a lib/elf64/libbz2.a -lpthread -lGLU -lSDL
 
 elf64_base: launch.o opengl.o os.o rtscfs.o Makefile
-	$(CXX) -o $@ launch.o opengl.o os.o rtscfs.o lib/elf64/libv8_base.a lib/elf64/libv8_snapshot.a lib/elf64/libbz2.a -lpthread -lGLU -lSDL
+	$(CXX) -o $@ launch.o opengl.o os.o rtscfs.o $(ELF64_LIBS)
 
-.PHONY: elf64_data
+.PHONY: elf64
 elf64: elf64_base Makefile
 	python scripts/elf64_fixup.py
+
+### Windows compilation.
+
+WIN32_LIBS = lib/win32/libbz2.a lib/win32/libv8_base.a lib/win32/libv8_snapshot.a lib/win32/libv8_nosnapshot.a lib/win32/winmm.lib lib/win32/ws2_32.lib lib/win32/libSDL.dll.a lib/win32/opengl32.lib lib/win32/glu32.lib
+
+win32_base.exe: launch.o opengl.o os.o rtscfs.o Makefile
+	$(CXX) -o $@ launch.o opengl.o os.o rtscfs.o $(WIN32_LIBS)
+
+.PHONY: win32_vars
+win32_vars:
+	$(eval CPPFLAGS += $(WIN32_CPPFLAGS))
+	$(eval CXX := $(WIN32_CXX))
+
+.PHONY: win32
+win32: win32_vars win32_base.exe Makefile
+	python scripts/win32_fixup.py
 
