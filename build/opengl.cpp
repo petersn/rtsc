@@ -89,6 +89,10 @@ v8::Handle<v8::Value> opengl_launch(const v8::Arguments& x) {
 	if (locked_framerate)
 		SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
+	// If there's a little delay in the Javascript getting to set the caption,
+	// then overwrite whatever defaults might be chosen with empty strings.
+	SDL_WM_SetCaption("", "");
+
 	if (!(screen = SDL_SetVideoMode(screen_width, screen_height, 32, videoFlags))) {
 		SDL_Quit();
 		return v8::Integer::New(1);
@@ -410,18 +414,22 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 }
 
 v8::Handle<v8::Value> opengl_set_window_title(const v8::Arguments& args) {
-	char *title, *icon;
-	SDL_WM_GetCaption(&title, &icon);
+	char* icon;
+	SDL_WM_GetCaption(NULL, &icon);
+	char* icon_copy = strdup(icon);
 	v8::String::AsciiValue new_title(args[0]);
-	SDL_WM_SetCaption(*new_title, icon);
+	SDL_WM_SetCaption(*new_title, icon_copy);
+	free(icon_copy);
 	return v8::Integer::New(0);
 }
 
 v8::Handle<v8::Value> opengl_set_taskbar_name(const v8::Arguments& args) {
-	char *title, *icon;
-	SDL_WM_GetCaption(&title, &icon);
+	char *title;
+	SDL_WM_GetCaption(&title, NULL);
+	char* title_copy = strdup(title);
 	v8::String::AsciiValue new_icon(args[0]);
-	SDL_WM_SetCaption(title, *new_icon);
+	SDL_WM_SetCaption(title_copy, *new_icon);
+	free(title_copy);
 	return v8::Integer::New(0);
 }
 

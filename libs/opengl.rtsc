@@ -24,7 +24,6 @@ __inline_javascript__
 	var stored_this = this;
 	function RTSC_launch() {
 		native_opengl_launch.apply(this, arguments);
-		# Capture the local values for use.
 		stored_this.RTSC_set_window_title(stored_this.RTSC_window_title);
 		stored_this.RTSC_set_taskbar_name(stored_this.RTSC_taskbar_name);
 	}
