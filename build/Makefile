@@ -33,11 +33,11 @@ ELF64_LIBS = lib/elf64/libv8_base.a lib/elf64/libv8_snapshot.a lib/elf64/libbz2.
 
 elf64_base: $(OBJECTS) Makefile
 	$(CXX) -o $@ $(OBJECTS) $(ELF64_LIBS)
-#	strip $(STRIP_ARGS) $@
 
 .PHONY: elf64
 elf64: elf64_base Makefile
 	python scripts/elf64_fixup.py
+	#strip $(STRIP_ARGS) ../quick_links/elf64_data
 
 ### Windows compilation.
 
@@ -45,7 +45,6 @@ WIN32_LIBS = lib/win32/libbz2.a lib/win32/libv8_base.a lib/win32/libv8_snapshot.
 
 win32_base.exe: $(OBJECTS) Makefile
 	$(CXX) -o $@ $(OBJECTS) $(WIN32_LIBS)
-#	strip $(STRIP_ARGS) $@
 
 .PHONY: win32_vars
 win32_vars:
@@ -55,4 +54,4 @@ win32_vars:
 .PHONY: win32
 win32: win32_vars win32_base.exe Makefile
 	python scripts/win32_fixup.py
-
+	#strip $(STRIP_ARGS) ../quick_links/win32_data
