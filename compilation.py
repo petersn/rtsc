@@ -209,7 +209,7 @@ def local_compile(code):
 		return "e", e.output
 
 def capabilities():
-	return ("elf64", "win32")
+	return sorted([i[:-5] for i in os.listdir(os.path.join(local_dir, "quick_links")) if i.endswith("_data")])
 
 if __name__ == "__main__":
 	import sys

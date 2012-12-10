@@ -15,12 +15,12 @@ OBJECTS = launch.o rtscfs.o os.o opengl.o
 help:
 	@echo RTSC quick-links makefile.
 	@echo
-	@echo Valid targets: clean, elf64, win32
+	@echo Valid targets: clean, elf32, elf64, win32
 	@echo
 	@echo When building for win32:
 	@echo Make sure to change CXX in the Makefile to point to MinGW\'s g++.
 	@echo
-	@echo Before switching build targets \(elf64, win32\), make sure to clean!
+	@echo Before switching build targets, make sure to clean!
 	@echo Otherwise, g++ will try to reuse the previosu incompatible .o files.
 
 .PHONY: clean
