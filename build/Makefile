@@ -25,7 +25,7 @@ help:
 
 .PHONY: clean
 clean:
-	rm -f *.o elf64_base win32_base.exe
+	rm -f *.o elf{32,64}_base win{32,64}_base.exe
 
 ### Linux compilation.
 
