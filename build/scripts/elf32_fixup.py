@@ -14,7 +14,7 @@ purple = "\x1B\x5B\x30\x31\x3B\x33\x35\x6D"
 teal   = "\x1B\x5B\x30\x31\x3B\x33\x36\x6D"
 
 half, word = "H", "I"
-xword = addr = off = "Q"
+xword = addr = off = "I"
 elf_header_format = [
 	("e_ident", "16s"),
 	("e_type", half),
@@ -34,12 +34,12 @@ elf_header_format = [
 
 program_header_format = [
 	("p_type", word),
-	("p_flags", word),
 	("p_offset", off),
 	("p_vaddr", addr),
 	("p_paddr", addr),
 	("p_filesz", xword),
 	("p_memsz", xword),
+	("p_flags", word),
 	("p_align", xword),
 ]
 
@@ -58,11 +58,11 @@ section_header_format = [
 
 symbol_entry_format = [
 	("st_name", word),
+	("st_value", addr),
+	("st_size", xword),
 	("st_info", "B"),
 	("st_other", "B"),
 	("st_shndx", half),
-	("st_value", addr),
-	("st_size", xword),
 ]
 
 def format_size(fields):
@@ -73,6 +73,9 @@ def parse(fields, data):
 	format = "<" + "".join(i[1] for i in fields)
 	header = struct.unpack(format, data[:struct.calcsize(format)])
 	return dict(zip((i[0] for i in fields), header))
+
+def offset_to(fmt, name):
+	return format_size(fmt[:[i[0] for i in fmt].index(name)])
 
 patches = []
 
@@ -89,7 +92,7 @@ def read_str(data, index):
 	return data[index:i]
 
 # Read in our ELF binary.
-data = open("elf64_base").read()
+data = open("elf32_base").read()
 header = parse(elf_header_format, data)
 print green + "ELF header:" + normal
 pprint.pprint(header)
@@ -163,7 +166,7 @@ for section in section_headers:
 				pprint.pprint(entry)
 				pointer_target = entry["st_value"]
 				file_offset = entry["st_value"] - elf_load_offset
-				patches.append( (file_offset, file_offset+8, struct.pack("<Q", javascript_load_vma)) )
+				patches.append( (file_offset, file_offset+4, struct.pack("<I", javascript_load_vma)) )
 #				patches.append( (file_offset+8, file_offset+16, "\0"*8) )
 #				relocation_addresses.append(file_offset+8)
 				break
@@ -184,8 +187,8 @@ for header in program_headers:
 		header["p_offset"] = len(data)
 		header["p_vaddr"] = header["p_paddr"] = javascript_load_vma
 		header["p_filesz"] = 0
-		relocation_addresses.append(header["OFFSET"]+32) # 
-		relocation_addresses.append(header["OFFSET"]+40)
+		relocation_addresses.append(header["OFFSET"]+offset_to(program_header_format, "p_filesz")) # 
+		relocation_addresses.append(header["OFFSET"]+offset_to(program_header_format, "p_memsz"))
 		print green + "Newly mangled:" + normal
 		pprint.pprint(header)
 		write_back(program_header_format, header)
@@ -203,16 +206,16 @@ for start, stop, new in patches:
 	data[start:stop] = list(new)
 data = "".join(data)
 
-fd = open("../quick_links/elf64_data", "w")
+fd = open("../quick_links/elf32_data", "w")
 fd.write(data)
 fd.close()
 
 print
 print green + "Binary relocations:" + normal
 
-fd = open("../quick_links/elf64_relocs", "w")
+fd = open("../quick_links/elf32_relocs", "w")
 for loc in relocation_addresses:
-	print "\t[%08x:%08x] += fs_size" % (loc, loc+8)
-	fd.write("add,%s,8,fs_size\n" % loc)
+	print "\t[%08x:%08x] += fs_size" % (loc, loc+4)
+	fd.write("add,%s,4,fs_size\n" % loc)
 fd.close()
 

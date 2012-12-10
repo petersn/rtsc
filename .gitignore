@@ -5,7 +5,6 @@
 parse_cache
 rt/
 csrt/
-build/
 keys/
 .name
 .snippets

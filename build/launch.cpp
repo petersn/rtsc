@@ -57,7 +57,11 @@ Handle<Value> _load_fs_data(const Arguments& x) {
 		return v8::Integer::New(0);
 	}
 	v8::Handle<v8::Object> s = v8::Object::New();
+#if WRAP_WORKAROUND
+	s->Set(v8::String::New("RTSC_pointer"), v8::Integer::New(reinterpret_cast<signed int>(string)));
+#else
 	s->Set(v8::String::New("RTSC_pointer"), v8::External::Wrap(string));
+#endif
 	s->Set(v8::String::New("RTSC_length"), v8::Integer::New(string_length));
 	s->Set(v8::String::New("RTSC_source"), v8::String::New(*arg, arg.length()));
 	return handle_scope.Close(s);
@@ -77,7 +81,11 @@ Handle<Value> _data_to_string(const Arguments& x) {
 	if (not data->Has(v8::String::New("RTSC_pointer"))) {
 		cerr << "Attempted _data_to_string() on something that isn't a data object." << endl;
 	}
+#if WRAP_WORKAROUND
+	char* data_ptr = reinterpret_cast<char*>(data->Get(v8::String::New("RTSC_pointer"))->Int32Value());
+#else
 	char* data_ptr = (char*) v8::External::Unwrap(data->Get(v8::String::New("RTSC_pointer")));
+#endif
 	int length = data->Get(v8::String::New("RTSC_length"))->Int32Value();
 	return v8::String::New(data_ptr, length);
 }

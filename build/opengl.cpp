@@ -268,7 +268,11 @@ v8::Handle<v8::Value> opengl_load_image_from_fs_data(const v8::Arguments& x) {
 		cerr << "Attempted opengl.load_image_from_fs_data() on something that isn't a data object." << endl;
 		return v8::Integer::New(0);
 	}
+#if WRAP_WORKAROUND
+	char* data = reinterpret_cast<char*>(tex->Get(v8::String::New("RTSC_pointer"))->Int32Value());
+#else
 	char* data = (char*) v8::External::Unwrap(tex->Get(v8::String::New("RTSC_pointer")));
+#endif
 
 	// Note that 0x58455403 == "\x03TEX", the texture magic number.
 	int magic_number = *(int*)data; data += 4;
