@@ -699,7 +699,7 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 """
 
 	parser = argparse.ArgumentParser(prog="rtsc", description="RTSC command line compiler, v%s.%s" % version, epilog=epilog)
-	parser.add_argument("-o", "--out", default=None, help="set the output file (default: Main, Main.exe on win)")
+	parser.add_argument("-o", "--out", default=None, help="set the output file (default: Main, Main.exe for win*)")
 	parser.add_argument("-v", action="store_const", const=True, default=False, help="be verbose")
 	#, choices=("native", "32", "64", "elf32", "elf64", "win32", "win64", "mac32", "mac64")
 	parser.add_argument("--arch", default="native", help="choose an output architecture (default: native)")
