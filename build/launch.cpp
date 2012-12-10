@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
 	}
 	void* fs_image_vma_pointer = (void*) new char[sb.st_size];
 	FILE* fd = fopen(argv[1], "rb");
-	if (fread(fs_image_vma_pointer, 1, sb.st_size, fd) != sb.st_size) {
+	if (fread(fs_image_vma_pointer, 1, sb.st_size, fd) != (size_t)sb.st_size) {
 		cerr << "Couldn't read the number of bytes we expected." << endl;
 		cerr << "Continuing anyway." << endl;
 	}
