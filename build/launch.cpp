@@ -11,16 +11,23 @@
 using namespace v8;
 using namespace std;
 
-// On Windows we need an extra section to reuse for loading user data.
-#ifdef WIN32
-int _useless_filler_variable __attribute__((section(".ponies")));
+#ifdef BIFURCATED_LAUNCHER
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <unistd.h>
 #endif
+
+#ifndef BIFURCATED_LAUNCHER
+// On Windows we need an extra section to reuse for loading user data.
+# ifdef WIN32
+int _useless_filler_variable __attribute__((section(".ponies")));
+# endif
 
 // This variable will be overwritten in the binary by a fixup script.
 #ifdef MAC_WORKAROUND
 void* fs_image_vma_pointer __attribute__((section("data,.unicorn"))) = (void*) 0xdeadbeef;
 #else
-void* fs_image_vma_pointer __attribute__((
+void* fs_image_vma_pointer __attribute__((section(".unicorn"))) = (void*) 0xdeadbeef;
 #endif
 
 Handle<Value> print(const Arguments& x) {
@@ -115,6 +122,25 @@ int main(int argc, char* argv[]) {
 	// Enter the created context for compiling and
 	// running the game script.
 	Context::Scope context_scope(context);
+
+#ifdef BIFURCATED_LAUNCHER
+	if (argc != 2) {
+		cerr << "Usage: rtsc_launcher game.rtscfs" << endl;
+		return 2;
+	}
+	struct stat sb;
+	if (stat(argv[1], &sb) == -1) {
+		cerr << "Couldn't stat input file." << endl;
+		return 1;
+	}
+	void* fs_image_vma_pointer = (void*) new char[sb.st_size];
+	FILE* fd = fopen(argv[1], "rb");
+	if (fread(fs_image_vma_pointer, 1, sb.st_size, fd) != (size_t)sb.st_size) {
+		cerr << "Couldn't read the number of bytes we expected." << endl;
+		cerr << "Continuing anyway." << endl;
+	}
+	fclose(fd);
+#endif
 
 	// Load up the rtscfs that is bundled in our binary, and loaded into memory.
 	rtscfs_init(fs_image_vma_pointer);

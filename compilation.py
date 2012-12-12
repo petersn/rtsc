@@ -102,8 +102,6 @@ def byte_swap(s, bpp):
 		s[i], s[i+2] = s[i+2], s[i]
 	return s.tostring()
 
-RTSCFS_FLAG_BZ2 = 1<<0
-
 def get_file_data(name, path, flags):
 	if "::" in path:
 		oper, path = path.split("::", 1)
@@ -138,17 +136,6 @@ def quick_link(code, target="elf64", config=None):
 		if config.has_section("vars"):
 			for name, value in config.items("vars"):
 				fs[name] = value.strip()
-	savings = 0
-	# Optimize the filesystem.
-	for name in fs:
-		# Check if we can do better with bz2.
-		bz2_data = struct.pack("<Q", len(fs[name])) + fs[name].encode("bz2")
-		if len(bz2_data) < len(fs[name]):
-			if flag_verbose:
-				print "(%5.2f%%)" % (100.0 * len(bz2_data) / len(fs[name]),), "Using bz2 for", name
-			flags[name] = RTSCFS_FLAG_BZ2
-			savings += len(fs[name]) - len(bz2_data)
-			fs[name] = bz2_data
 	code = rtscfs.pack(fs, flags=flags)
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	quick_links_root = os.path.join(local_dir, "quick_links", target)
@@ -175,8 +162,6 @@ def quick_link(code, target="elf64", config=None):
 			symbols["fs_size"] = len(code)
 		else: assert False, repr(command)
 	data.extend(array.array("B", code))
-	if flag_verbose and savings:
-		print "Compressed to: %5.2f%%" % (100.0 * (len(data) - savings) / len(data),)
 	# Round the binary off to the next 32-byte mark.
 	data.extend(array.array("B", [0] * (-len(data)%32)))
 	return "g", data.tostring()

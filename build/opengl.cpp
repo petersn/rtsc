@@ -14,9 +14,10 @@
 # else
 #  include <SDL/SDL.h>
 # endif
+#endif
+
 # include <GL/gl.h>
 # include <GL/glu.h>
-#endif
 
 // On Windows we may need to patch up these missing definitions.
 #ifdef WIN32
