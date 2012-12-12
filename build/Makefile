@@ -15,9 +15,9 @@ OBJECTS = launch.o rtscfs.o os.o opengl.o
 help:
 	@echo RTSC quick-links makefile.
 	@echo
-	@echo Valid targets: clean, elf32, elf64, win32
+	@echo Valid targets: clean, elf32, elf64, mac64, win32
 	@echo
-	@echo When building for win32:
+	@echo When building for Windows:
 	@echo Make sure to change CXX in the Makefile to point to MinGW\'s g++.
 	@echo
 	@echo Before switching build targets, make sure to clean!
@@ -55,6 +55,23 @@ elf32_vars:
 .PHONY: elf32
 elf32: elf32_vars elf32_base Makefile
 	python scripts/elf32_fixup.py
+
+### Macosks compilation.
+
+# 64 bits
+
+MAC64_LIBS = lib/mac64/libv8_base.a lib/mac64/libv8_snapshot.a lib/mac64/libbz2.a -lpthread -L/opt/local/lib -lSDL -framework OpenGL
+
+mac64_base: $(OBJECTS) Makefile
+	$(CXX) -o $@ $(OBJECTS) $(MAC64_LIBS)
+
+.PHONY: mac64_vars
+mac64_vars:
+	$(eval CPPFLAGS += -I/usr/X11R6/include/ -DMAC_WORKAROUND)
+
+.PHONY: mac64
+mac64: mac64_vars mac64_base Makefile
+	python scripts/mac64_fixup.py
 
 ### Windows compilation.
 
