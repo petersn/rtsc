@@ -429,10 +429,20 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 	return v8::Integer::New(0);
 }
 
+// So, under macs, the SDL header defines SDL_WM_GetCaption(const char**, const char**),
+// and clang/llvm is so picky it won't let char**s be casted up.
+// However, under all other platforms the SDL header defines SDL_WM_GetCaption
+// without the consts, so we need to only declare these const on macs.
+#ifdef MAC_WORKAROUND
+# define MAC_ONLY_CONST const
+#else
+# define MAC_ONLY_CONST
+#endif
+
 v8::Handle<v8::Value> opengl_set_window_title(const v8::Arguments& args) {
-	const char* icon;
+	MAC_ONLY_CONST char* icon;
 	SDL_WM_GetCaption(NULL, &icon);
-	const char* icon_copy = strdup(icon);
+	MAC_ONLY_CONST char* icon_copy = strdup(icon);
 	v8::String::AsciiValue new_title(args[0]);
 	SDL_WM_SetCaption(*new_title, icon_copy);
 	free((void*)icon_copy);
@@ -440,9 +450,9 @@ v8::Handle<v8::Value> opengl_set_window_title(const v8::Arguments& args) {
 }
 
 v8::Handle<v8::Value> opengl_set_taskbar_name(const v8::Arguments& args) {
-	const char* title;
+	MAC_ONLY_CONST char* title;
 	SDL_WM_GetCaption(&title, NULL);
-	const char* title_copy = strdup(title);
+	MAC_ONLY_CONST char* title_copy = strdup(title);
 	v8::String::AsciiValue new_icon(args[0]);
 	SDL_WM_SetCaption(title_copy, *new_icon);
 	free((void*)title_copy);

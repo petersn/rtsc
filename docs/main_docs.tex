@@ -59,11 +59,12 @@ An rtscfs image (see \ref{section_rtscfs}) is created containing the game data.
 The entry \texttt{js} in this image contains the Javascript string (not null-terminated) to be executed.
 \item
 The file \texttt{target\_data} is read in.
-The file \texttt{target\_relocs} contains a sequence of relocation instructions of the form \texttt{"address,length,var\textbackslash n"}.
+The file \texttt{target\_relocs} contains a sequence of relocation instructions of the form \texttt{"command,arg0,arg1,arg2,...\textbackslash n"}.
+
 Each relocation points to into \texttt{target\_data}, and specifies a variable to be added into the bytes from \texttt{address} to \texttt{address}+\texttt{length}, in little endian format.
 Currently, only the variable \texttt{fs\_size} is supported, and \texttt{fs\_size} equals the length of the rtscfs image.
-An example actual relocation file for a particular revision of the elf64 target:
-\lstinputlisting{elf64_relocs}
+An example actual relocation file for a particular revision of the win32 target:
+\lstinputlisting{win32_relocs}
 \item
 The output binary is the relocated contents of \texttt{target\_data} concatenated with the rtscfs image for the binary.
 The quick links binaries have been made to expect data to be added at their ends.
