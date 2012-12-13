@@ -2,6 +2,7 @@
 
 import struct
 
+RTSCFS_MAGIC = 0x3073666373747203
 RTSCFS_FLAG_BZ2 = 1<<0
 
 def pack(kv, initial_alignment=0, mod=16, flags={}):
@@ -12,10 +13,10 @@ def pack(kv, initial_alignment=0, mod=16, flags={}):
 		if len(bz2_data) < len(kv[name]):
 			flags[name] = flags.get(name, 0) | RTSCFS_FLAG_BZ2
 			kv[name] = bz2_data
-	# Now pack the optimized filesystem.
+	# Now pack the optimized filesystem's header.
 	ds = []
-	ds.append(struct.pack("<2Q", len(kv), 16))
-	strings_pointer = 16 + 5*8*len(kv)
+	ds.append(struct.pack("<3Q", RTSCFS_MAGIC, len(kv), 24))
+	strings_pointer = 24 + 5*8*len(kv)
 	data_pointer = strings_pointer + sum(map(len, kv))
 	# Put the entries in.
 	for key, value in kv.iteritems():
@@ -36,7 +37,8 @@ def pack(kv, initial_alignment=0, mod=16, flags={}):
 	return "".join(ds)
 
 def unpack(s):
-	fs_count, fs_offset = struct.unpack("<2Q", s[:16])
+	fs_magic, fs_count, fs_offset = struct.unpack("<3Q", s[:16])
+	assert fs_magic == RTSCFS_MAGIC
 	d = {}
 	for i in xrange(fs_count):
 		entry_name_size, entry_name_offset, entry_size, entry_offset, entry_flags = struct.unpack("<5Q", s[fs_offset:fs_offset+5*8])

@@ -123,12 +123,12 @@ int main(int argc, char* argv[]) {
 #ifdef BIFURCATED_LAUNCHER
 	if (argc != 2) {
 		cerr << "Usage: rtsc_launcher game.rtscfs" << endl;
-		return 2;
+		return 1;
 	}
 	struct stat sb;
 	if (stat(argv[1], &sb) == -1) {
 		cerr << "Couldn't stat input file." << endl;
-		return 1;
+		return 2;
 	}
 	void* fs_image_vma_pointer = (void*) new char[sb.st_size];
 	FILE* fd = fopen(argv[1], "rb");
@@ -140,7 +140,10 @@ int main(int argc, char* argv[]) {
 #endif
 
 	// Load up the rtscfs that is bundled in our binary, and loaded into memory.
-	rtscfs_init(fs_image_vma_pointer);
+	if (rtscfs_init(fs_image_vma_pointer)) {
+		// Assume an error message was already printed.
+		return 3;
+	}
 
 	// Find the Javascript within this structure.
 	size_t javascript_string_length;
@@ -148,7 +151,7 @@ int main(int argc, char* argv[]) {
 
 	if (javascript_string == NULL) {
 		cerr << "Bundled rtscfs image has no \"js\" entry." << endl;
-		return 2;
+		return 4;
 	}
 
 	// Create a string containing the JavaScript source code.
