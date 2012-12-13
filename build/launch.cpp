@@ -24,6 +24,9 @@ int _useless_filler_variable __attribute__((section(".ponies")));
 # endif
 
 // This variable will be overwritten in the binary by a fixup script.
+#ifdef MAC_WORKAROUND
+void* fs_image_vma_pointer __attribute__((section("data,.unicorn"))) = (void*) 0xdeadbeef;
+#else
 void* fs_image_vma_pointer __attribute__((section(".unicorn"))) = (void*) 0xdeadbeef;
 #endif
 

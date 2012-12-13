@@ -9,11 +9,15 @@
 # include <malloc.h>
 # include <SDL.h>
 #else
-# include <SDL/SDL.h>
+# ifdef MAC_WORKAROUND
+#  include <SDL.h>
+# else
+#  include <SDL/SDL.h>
+# endif
 #endif
 
-#include <GL/gl.h>
-#include <GL/glu.h>
+# include <GL/gl.h>
+# include <GL/glu.h>
 
 // On Windows we may need to patch up these missing definitions.
 #ifdef WIN32
@@ -86,8 +90,10 @@ v8::Handle<v8::Value> opengl_launch(const v8::Arguments& x) {
 	if (info->blit_hw)
 		videoFlags |= SDL_HWACCEL;
 
+#ifndef MAC_WORKAROUND
 	if (locked_framerate)
 		SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
+#endif
 
 	// If there's a little delay in the Javascript getting to set the caption,
 	// then overwrite whatever defaults might be chosen with empty strings.
@@ -214,10 +220,16 @@ const char* key_translate(SDLKey x) {
 		case SDLK_SCROLLOCK: return "scrollock"; case SDLK_RSHIFT: return "right-shift"; case SDLK_LSHIFT: return "left-shift";
 		case SDLK_RCTRL: return "right-ctrl"; case SDLK_LCTRL: return "left-ctrl"; case SDLK_RALT: return "right-alt";
 		case SDLK_LALT: return "left-alt"; case SDLK_RMETA: return "right-meta"; case SDLK_LMETA: return "left-meta";
-		case SDLK_LSUPER: return "left-windows-key"; case SDLK_RSUPER: return "right-windows-key"; case SDLK_MODE: return "mode-shift";
+#ifndef MAC_WORKAROUND
+		case SDLK_LSUPER: return "left-windows-key"; case SDLK_RSUPER: return "right-windows-key";
+#endif
+		case SDLK_MODE: return "mode-shift";
 		case SDLK_HELP: return "help"; case SDLK_PRINT: return "print-screen"; case SDLK_SYSREQ: return "SysRq";
 		case SDLK_BREAK: return "break"; case SDLK_MENU: return "menu"; case SDLK_POWER: return "power";
-		case SDLK_EURO: return "euro"; 	default: return "unknown";
+#ifndef MAC_WORKAROUND
+		case SDLK_EURO: return "euro";
+#endif
+		default: return "unknown";
 	}
 }
 
@@ -418,22 +430,22 @@ v8::Handle<v8::Value> opengl_draw_texture(const v8::Arguments& args) {
 }
 
 v8::Handle<v8::Value> opengl_set_window_title(const v8::Arguments& args) {
-	char* icon;
+	const char* icon;
 	SDL_WM_GetCaption(NULL, &icon);
-	char* icon_copy = strdup(icon);
+	const char* icon_copy = strdup(icon);
 	v8::String::AsciiValue new_title(args[0]);
 	SDL_WM_SetCaption(*new_title, icon_copy);
-	free(icon_copy);
+	free((void*)icon_copy);
 	return v8::Integer::New(0);
 }
 
 v8::Handle<v8::Value> opengl_set_taskbar_name(const v8::Arguments& args) {
-	char *title;
+	const char* title;
 	SDL_WM_GetCaption(&title, NULL);
-	char* title_copy = strdup(title);
+	const char* title_copy = strdup(title);
 	v8::String::AsciiValue new_icon(args[0]);
 	SDL_WM_SetCaption(title_copy, *new_icon);
-	free(title_copy);
+	free((void*)title_copy);
 	return v8::Integer::New(0);
 }
 
