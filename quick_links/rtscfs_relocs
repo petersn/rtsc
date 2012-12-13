@@ -1,1 +1,4 @@
-
+# The rtscfs arch is just a raw dump of the rtscfs image.
+# Thus, it has no data (an empty (zero byte) rtscfs_data file),
+# and has no relocations.
+# Read: "This file intentionally blank."

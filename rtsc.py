@@ -825,7 +825,9 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		fd = open(args.out, "w")
 		fd.write(binary)
 		fd.close()
-		os.chmod(args.out, 0755)
+		# Don't mark raw rtscfs images as executable.
+		if args.arch != "rtscfs":
+			os.chmod(args.out, 0755)
 	elif status == "e":
 		print red + "Error:" + normal
 		print binary.strip()
