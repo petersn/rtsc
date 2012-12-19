@@ -720,8 +720,9 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		print "Connecting to:", "%s:%s" % (args.host[0], args.host[1])
 		chans = compilation.remote_channels(args.host[0], args.host[1])
 		print "Remote compilation channels:", len(chans)
-		for chan in chans:
+		for chan, strings in chans:
 			print "\t%s" % chan
+			print "\t\t%s" % strings
 		exit()
 
 	if args.ls_ql:

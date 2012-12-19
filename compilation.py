@@ -61,7 +61,16 @@ def remote_channels(host, port, timeout=None):
 	sock, fd = connect(uuid, host, port, timeout=None)
 	sock.send("rooms\n")
 	rooms = fd.readline()[1:].split(":")[:-1]
-	return [room[6:] for room in rooms if room.startswith("@RTSC_")]
+	rooms = [room[6:] for room in rooms if room.startswith("@RTSC_")]
+	grab = "-%s:" % uuid
+	strings = {}
+	for room in rooms:
+		sock.send(":@RTSC_%s:info,%s\n" % (room, uuid))
+		datum = fd.readline()
+		assert datum.startswith(grab)
+		datum = datum[len(grab):].strip().decode("base64")
+		strings[room] = datum
+	return [ (room, strings[room]) for room in rooms ]
 
 def remote_compile(code, chan, host, port, target, timeout=None):
 	uuid = "RTSCRCS_" + os.urandom(32).encode("hex")
@@ -69,7 +78,7 @@ def remote_compile(code, chan, host, port, target, timeout=None):
 	sock.send("list:@RTSC_%s\n" % chan)
 	if fd.readline() == "=\n":
 		return "f", ""
-	sock.send(":@RTSC_%s:%s,%s,%s\n" % (chan, uuid, target, escape(code)))
+	sock.send(":@RTSC_%s:comp,%s,%s,%s\n" % (chan, uuid, target, escape(code)))
 	datum = fd.readline()
 	grab = "-%s:" % uuid
 	assert datum.startswith(grab)
@@ -220,19 +229,26 @@ if __name__ == "__main__":
 			if not request.startswith(grab):
 				continue
 			request = request[len(grab):]
-			request = unescape(request)
-			address, target, code = request.split(",", 2)
-			print "Got %i bytes from %r for %s." % (len(code), address, target)
-#			result, data = local_compile(code)
-			if target not in capabilities():
-				result, data = "e", "No support for given arch: %r" % target
+			request = unescape(request).strip().split(",")
+			if request[0] == "comp":
+				address, target, code = request[1:]
+				print "Got %i bytes from %r for %s." % (len(code), address, target)
+#				result, data = local_compile(code)
+				if target not in capabilities():
+					result, data = "e", "No support for given arch: %r" % target
+				else:
+					result, data = quick_link(code, target=target)
+				if result == "g":
+					print "Compiled to %i bytes." % (len(data),)
+				else:
+					print "Sent %i lines of error output." % (data.count("\n"),)
+				sock.send(":%s:%s,%s\n" % (address, result, data.encode("base64").replace("\n", "")))
+			elif request[0] == "info":
+				address, = request[1:]
+				data = "Quick-links targets: " + ", ".join(capabilities())
+				sock.send(":%s:%s\n" % (address, data.encode("base64").replace("\n", "")))
 			else:
-				result, data = quick_link(code, target=target)
-			if result == "g":
-				print "Compiled to %i bytes." % (len(data),)
-			else:
-				print "Sent %i lines of error output." % (data.count("\n"),)
-			sock.send(":%s:%s,%s\n" % (address, result, data.encode("base64").replace("\n", "")))
+				print "Unknown request:", repr(request)
 	else:
 		for path in sys.argv[1:]:
 			code = open(path).read()
