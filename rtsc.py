@@ -812,15 +812,16 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 		ctx.build(statements)
 		js = ctx.write_js()
 		import compilation
+		with Chdir(project_root if args.project else "."):
+			code = compilation.make_rtscfs(js, target=args.arch, config=parser)
 		if args.remote:
 			if args.v:
 				print green+"Remotely compiling:"+normal, "chan=%s host=%s:%s" % (args.chan, args.host[0], args.host[1])
-			status, binary = compilation.remote_compile(js, args.chan, args.host[0], args.host[1], args.arch)
+			status, binary = compilation.remote_compile(code, args.chan, args.host[0], args.host[1], args.arch)
 		else:
 			if args.v:
 				print green+"Using quick-links."+normal
-			with Chdir(project_root if args.project else "."):
-				status, binary = compilation.quick_link(js, target=args.arch, config=parser)
+			status, binary = compilation.quick_link(code, target=args.arch, config=parser)
 
 	if status == "g":
 		fd = open(args.out, "w")

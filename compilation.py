@@ -35,9 +35,11 @@ def escape(s):
 	s = s.replace("\\", r"\b")
 	s = s.replace("\n", r"\n")
 	s = s.replace(":",  r"\a")
+	s = s.replace(",",  r"\c")
 	return s
 
 def unescape(s):
+	s = s.replace(r"\c", ",")
 	s = s.replace(r"\a", ":")
 	s = s.replace(r"\n", "\n")
 	s = s.replace(r"\b", "\\")
@@ -132,7 +134,7 @@ def get_file_data(name, path, flags):
 		else: assert False
 	return open(path).read()
 
-def quick_link(code, target="elf64", config=None):
+def make_rtscfs(code, target="elf64", config=None):
 	get_standard_header()
 	import struct
 	code = standard_header + code
@@ -146,6 +148,9 @@ def quick_link(code, target="elf64", config=None):
 			for name, value in config.items("vars"):
 				fs[name] = value.strip()
 	code = rtscfs.pack(fs, flags=flags)
+	return code
+
+def quick_link(code, target="elf64", config=None):
 	sizeof_lookup = { 1: "<B", 2: "<H", 4: "<I", 8: "<Q" }
 	quick_links_root = os.path.join(local_dir, "quick_links", target)
 	data   = read_file(quick_links_root+"_data")
@@ -229,9 +234,10 @@ if __name__ == "__main__":
 			if not request.startswith(grab):
 				continue
 			request = request[len(grab):]
-			request = unescape(request).strip().split(",")
+			request = request.strip().split(",")
 			if request[0] == "comp":
 				address, target, code = request[1:]
+				code = unescape(code)
 				print "Got %i bytes from %r for %s." % (len(code), address, target)
 #				result, data = local_compile(code)
 				if target not in capabilities():
