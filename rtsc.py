@@ -744,7 +744,7 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 	if args.arch in ("native", "32", "64"):
 		real = determine_arch()
 		if args.v:
-			print green+"Detected platform:"+normal, real
+			print green+"Detected arch:"+normal, real
 		# If the mode is 32 or 64, then replace the suffix as appropriate.
 		if args.arch != "native":
 			real = real[:-2] + args.arch
