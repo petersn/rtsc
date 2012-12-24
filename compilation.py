@@ -2,7 +2,6 @@
 # subprocess.check_output(["gmcs", "build/main.cs", "build/rtsc.cs"], stderr=subprocess.STDOUT)
 
 import socket, subprocess, os, base64, array, struct
-from PIL import Image
 import rtscfs
 
 flag_verbose = "RTSC_VERBOSE" in os.environ
@@ -119,6 +118,7 @@ def get_file_data(name, path, flags):
 		if oper == "none":
 			return open(path).read()
 		elif oper == "texture":
+			from PIL import Image
 			img = Image.open(path)
 			if img.mode in ("LA", "RGBA"):
 				data_str = img.convert("RGBA").tostring()

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python2.7
 # Main compiler!
 
 import sys, os, struct, time, pprint, copy, collections
