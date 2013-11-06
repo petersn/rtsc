@@ -37,7 +37,7 @@ def pack(kv, initial_alignment=0, mod=16, flags={}):
 	return "".join(ds)
 
 def unpack(s):
-	fs_magic, fs_count, fs_offset = struct.unpack("<3Q", s[:16])
+	fs_magic, fs_count, fs_offset = struct.unpack("<3Q", s[:24])
 	assert fs_magic == RTSCFS_MAGIC
 	d = {}
 	for i in xrange(fs_count):
