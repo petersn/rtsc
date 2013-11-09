@@ -11,7 +11,6 @@ class Entity:
 		"""
 		The idea of an Entity is that it has event receivers, and is capable of serializing itself.
 		"""
-
 		self.sid = sid
 		self.default_constructor()
 
