@@ -23,8 +23,10 @@ class SDIMainFrame(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnSaveAs, id=103)
 		self.Bind(wx.EVT_MENU, self.OnQuit, id=105)
 
+		self.splitter = wx.SplitterWindow(self, -1)
+
 		# Here is the leftmost tree.
-		self.data_tree = wx.TreeCtrl(self, -1, style=wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
+		self.data_tree = wx.TreeCtrl(self.splitter, -1, style=wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
 		image_list = wx.ImageList(16, 16)
 		image_list.Add(wx.Image('data/type_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
 		image_list.Add(wx.Image('data/datum_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
@@ -32,20 +34,22 @@ class SDIMainFrame(wx.Frame):
 		self.data_tree.AssignImageList(image_list)
 		self.data_tree_root = self.data_tree.AddRoot("Bug Bug Bug!")
 
-		self.main_panel = wx.Panel(self, -1)
+		self.main_panel = wx.Panel(self.splitter, -1)
 
 		self.outer_sizer = wx.BoxSizer(wx.VERTICAL)
 		self.toolbar = wx.ToolBar(self, -1, style=wx.TB_HORIZONTAL|wx.NO_BORDER)
 		self.toolbar.AddSimpleTool(1, wx.Image('data/type_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Type", '')
 		self.toolbar.AddSimpleTool(2, wx.Image('data/datum_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Datum", '')
 		self.toolbar.AddSimpleTool(3, wx.Image('data/gear_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Code", '')
+		self.toolbar.AddSimpleTool(10, wx.Image('data/x_icon.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "Delete Entry", '')
 #		self.bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
 #		self.bar_sizer.Add(self.compile_button, 0, 0)
-		self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-		self.top_sizer.Add(self.data_tree, 1, wx.EXPAND)
-		self.top_sizer.Add(self.main_panel, 2, wx.EXPAND)
+		self.splitter.SplitVertically(self.data_tree, self.main_panel, 250)
+#		self.top_sizer = wx.BoxSizer(wx.HORIZONTAL)
+#		self.top_sizer.Add(self.data_tree, 1, wx.EXPAND)
+#		self.top_sizer.Add(self.main_panel, 2, wx.EXPAND)
 		self.outer_sizer.Add(self.toolbar, 0, wx.EXPAND)
-		self.outer_sizer.Add(self.top_sizer, 1, wx.EXPAND)
+		self.outer_sizer.Add(self.splitter, 1, wx.EXPAND)
 		self.SetSizer(self.outer_sizer)
 
 		self.rebuild_data_tree()
@@ -53,6 +57,7 @@ class SDIMainFrame(wx.Frame):
 		self.Bind(wx.EVT_TOOL, self.NewType, id=1)
 		self.Bind(wx.EVT_TOOL, self.NewDatum, id=2)
 		self.Bind(wx.EVT_TOOL, self.NewCode, id=3)
+		self.Bind(wx.EVT_TOOL, self.DeleteEntry, id=10)
 
 		self.data_tree.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.OnTreeSelect)
 
@@ -71,13 +76,29 @@ class SDIMainFrame(wx.Frame):
 	def NewDatum(self, e): self.dm.new_of("data")
 	def NewCode(self, e): self.dm.new_of("code")
 
+	def DeleteEntry(self, e):
+		sel = self.data_tree.GetSelection()
+		entry = self.data_tree.GetItemPyData(sel)
+		if not entry: return
+		# Don't let a locked entry be deleted.
+		if entry.is_locked():
+			# If locked, then bring the edit frame to the front,
+			# so the user sees why the entry can't be deleted.
+			entry.activate()
+		else:
+			dlg = wx.MessageDialog(None, "Delete %s?" % repr(entry.name), "Deleting", wx.YES_NO | wx.ICON_QUESTION)
+			if dlg.ShowModal() == wx.ID_YES:
+				self.dm.delete_entry(entry)
+			dlg.Destroy()
+
 	def OnTreeSelect(self, e):
 		sel = self.data_tree.GetSelection()
 		entry = self.data_tree.GetItemPyData(sel)
+		if not entry: return
 		entry.activate()
 
 	def OnQuit(self, e):
-		self.Close()
+		app.Exit()
 
 class SDIMainApp(wx.App):
 	def OnInit(self):
