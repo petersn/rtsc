@@ -25,6 +25,24 @@ class TopLevelEntry:
 		# Data for various things this could be.
 		self.parents = []
 
+	def serialize(self):
+		return {
+			"which": self.which,
+			"name": self.name,
+			"parents": [i.name for i in self.parents],
+		}
+
+	@staticmethod
+	def load_from(obj, parent):
+		entry = parent.new_of(obj["which"])
+		entry.rename_entry(obj["name"])
+		entry.parents = obj["parents"]
+		return entry
+
+	def link_up_references(self):
+		# Look up named parents.
+		self.parents = map(self.parent.get_by_name, self.parents)
+
 	def insert(self):
 		self.tree_item = self.parent.frame.data_tree.AppendItem(self.parent.frame.data_tree_top_levels[self.which], self.name)
 		self.parent.frame.data_tree.SetItemImage(self.tree_item, ["types", "data", "code"].index(self.which), 0)
@@ -32,14 +50,22 @@ class TopLevelEntry:
 
 	def delete(self):
 		self.parent.frame.data_tree.Delete(self.tree_item)
+		self.edit_frame = None
 
 	def activate(self):
 		# Take advantage of the fact that deleted references coerce to false.
 		if not self.edit_frame:
-			self.edit_frame = TopLevelEntryFrame(self)
-			self.edit_frame.Show(True)
-		else:
-			self.edit_frame.Raise()
+			self.edit_frame = TopLevelEntryFrame(self.parent.frame.main_notebook, self)
+			self.parent.frame.notebook_remove_page("Edit")
+			self.parent.frame.main_notebook.AddPage(self.edit_frame, "Edit")
+
+#			self.parent.frame.main_panel.Destroy()
+#			self.parent.frame.splitter.SplitVertically(self.parent.frame.data_tree, self.edit_frame, 250)
+#			self.dm.frame.main_panel = self.edit_frame
+#			self.parent.frame.outer_sizer.Add(self.edit_frame, 1, wx.EXPAND)
+#			self.edit_frame.Show(True)
+#		else:
+#			self.edit_frame.Raise()
 
 	def rename_entry(self, new_name):
 		if self.parent.name_available(new_name):
@@ -71,9 +97,9 @@ class TopLevelSelector(wx.Dialog):
 		self.choice = self.dm.top_levels[self.which][index]
 		self.EndModal(wx.ID_OK)
 
-class TopLevelEntryFrame(wx.Frame):
-	def __init__(self, entry):
-		wx.Frame.__init__(self, None, -1, "Edit", wx.DefaultPosition, wx.Size(400, 500))
+class TopLevelEntryFrame(wx.Panel):
+	def __init__(self, parent, entry):
+		wx.Panel.__init__(self, parent, -1)#, "Edit", wx.DefaultPosition, wx.Size(400, 500))
 		self.entry = entry
 
 		self.notebook = wx.Notebook(self, -1)
@@ -93,9 +119,11 @@ class TopLevelEntryFrame(wx.Frame):
 		props_panel.SetSizer(column)
 
 		# Add the inheritance list, if we're types.
-		if self.entry.which == "types":
+		if self.entry.which in ("types", "data"):
 			self.parents_list = wx.ListCtrl(props_panel, -1, style=wx.LC_REPORT)
 			self.parents_list.InsertColumn(0, "Parent Type")
+			for obj in self.entry.parents:
+				self.parents_list.InsertStringItem(self.parents_list.GetItemCount(), obj.name)
 			self.parents_list.SetColumnWidth(0, 400)
 			edit_row = wx.BoxSizer(wx.HORIZONTAL)
 			add_parent_button = wx.Button(props_panel, -1, "Add Parent")
@@ -111,6 +139,7 @@ class TopLevelEntryFrame(wx.Frame):
 		top_sizer.Add(self.notebook, 1, wx.EXPAND)
 		self.SetSizer(top_sizer)
 
+		# Add ctrl+w to close.
 		randomId = wx.NewId()
 		self.Bind(wx.EVT_MENU, self.OnClose, id=randomId)
 		accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL,  ord('W'), randomId)])
@@ -154,12 +183,24 @@ class TopLevelEntryFrame(wx.Frame):
 class DataModel:
 	def __init__(self, frame):
 		self.frame = frame
+		self.clear_data_model()
+
+	def clear_data_model(self):
+		self.frame.rebuild_data_tree()
+		self.frame.notebook_remove_page("Edit")
 		self.top_levels = {"types": [], "data": [], "code": []}
 
 	def new_of(self, which):
 		entry = TopLevelEntry(self, which)
 		self.top_levels[which].append(entry)
 		entry.insert()
+		return entry
+
+	def get_by_name(self, name):
+		for l in self.top_levels.itervalues():
+			for e in l:
+				if name == e.name: return e
+		print "Can't find name:", repr(name)
 
 	def name_available(self, name):
 		# Names can't be empty.
@@ -174,10 +215,27 @@ class DataModel:
 		return True
 
 	def delete_entry(self, entry):
-		# Don't delete locked entries. It may segfault the program!
-		if entry.is_locked(): return
+		# Don't delete locked entries without cleaning up the page. It may segfault the program!
+		if entry.is_locked():
+			self.frame.notebook_remove_page("Edit")
 		for l in self.top_levels.itervalues():
 			if entry in l:
 				l.remove(entry)
 		entry.delete()
+
+	def serialize(self):
+		obj = {}
+		for key, val in self.top_levels.iteritems():
+			obj[key] = [i.serialize() for i in val]
+		return {"top_levels": obj}
+
+	def load_from(self, obj):
+		self.clear_data_model()
+		for key, val in obj["top_levels"].iteritems():
+			self.top_levels[key] = [TopLevelEntry.load_from(i, self) for i in val]
+		# There are some inter-entry references that are by name.
+		# Give objects a chance to look them up, and convert them over.
+		for l in self.top_levels.itervalues():
+			for i in l:
+				i.link_up_references()
 
