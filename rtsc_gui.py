@@ -1,7 +1,7 @@
 #! /usr/bin/python
 
 import sys, subprocess, time
-import rtsc, rtsc_project
+import rtsc, rtsc_project, dirtree
 import compilation, webbrowser
 import json, os, wx
 import wxLED
@@ -186,9 +186,32 @@ class RTSCMainFrame(wx.Frame):
 		# Build the resources panel
 		resources_panel = wx.Panel(self.notebook, -1)
 		self.notebook.AddPage(resources_panel, "Resources")
-
 		column = wx.BoxSizer(wx.VERTICAL)
-		self.resource_tree = wx.TreeCtrl(self, -1, style=wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
+		self.resource_tree = wx.TreeCtrl(resources_panel, -1, style=wx.TR_HAS_BUTTONS|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
+		image_list = wx.ImageList(16, 16)
+		image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER))
+		image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_EXECUTABLE_FILE))
+		image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE))
+		image_list.Add(wx.ArtProvider.GetBitmap(wx.ART_REPORT_VIEW))
+		icon_mapping = {
+			rtsc_project.SDI_Handler: 3,
+			rtsc_project.Text_Handler: 2,
+			rtsc_project.Blocks_Handler: 1,
+			rtsc_project.Image_Handler: 2,
+		}
+#		image_list.Add(wx.Image('data/gear_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
+		self.resource_tree.AssignImageList(image_list)
+		self.resource_tree_root = self.resource_tree.AddRoot("Bug Bug Bug!")
+		mapping = {}
+		for node in self.project_handle.tree.walk():
+			mapping[node] = self.resource_tree.AppendItem(mapping.get(node.parent, self.resource_tree_root), node.name)
+			self.resource_tree.SetItemPyData(mapping[node], node)
+			if isinstance(node, dirtree.treeDirectory):
+				self.resource_tree.SetItemImage(mapping[node], 0, 0)
+			handler = self.project_handle.get_handler_for_node(node)
+			if handler in icon_mapping:
+				self.resource_tree.SetItemImage(mapping[node], icon_mapping[handler], 0)
+		self.resource_tree.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.OnResourceDoubleClick)
 		column.Add(self.resource_tree, 1, wx.EXPAND)
 		resources_panel.SetSizer(column)
 
@@ -235,6 +258,10 @@ class RTSCMainFrame(wx.Frame):
 		for i, target in enumerate(global_config["targets"]):
 			self.target_list.SetStringItem(i, 1, ("", "Yes")[self.comp_data[target["name"]]["build"]])
 
+	def OnResourceDoubleClick(self, e):
+		node = self.resource_tree.GetItemPyData(e.GetItem())
+		self.project_handle.get_handler_for_node(node)().open_file(node.full_path)
+
 	def OnSave(self, e):
 		print "Saving project"
 		obj = {}
@@ -261,9 +288,58 @@ class RTSCMainFrame(wx.Frame):
 	def OnQuit(self, e):
 		app.Exit()
 
+class GlobalSettingsFrame(wx.Frame):
+	def __init__(self):
+		wx.Frame.__init__(self, None, -1, "Global RTSC Settings", wx.DefaultPosition, wx.Size(500, 300))
+		column = wx.BoxSizer(wx.VERTICAL)
+		self.ctrl = wx.ListCtrl(self, -1, style=wx.LC_REPORT)
+		self.ctrl.InsertColumn(0, "Field")
+		self.ctrl.InsertColumn(1, "Value")
+		self.ctrl.SetColumnWidth(0, 150)
+		self.ctrl.SetColumnWidth(1, 350)
+		self.keys = global_config["settings"].keys()
+		for key in self.keys:
+			i = self.ctrl.GetItemCount()
+			self.ctrl.InsertStringItem(i, key)
+			self.ctrl.SetStringItem(i, 1, global_config["settings"][key])
+		column.Add(self.ctrl, 1, wx.EXPAND)
+		button = wx.Button(self, -1, "Reset to defaults")
+		button.Bind(wx.EVT_BUTTON, self.OnReset)
+		column.Add(button, 0, wx.EXPAND)
+		self.SetSizer(column)
+		self.ctrl.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.OnEdit)
+
+	def OnEdit(self, e):
+		index = e.GetIndex()
+		key = self.keys[index]
+		dlg = wx.TextEntryDialog(self, "Variable value:", "Set value...", defaultValue=global_config["settings"][key])
+		try:
+			if dlg.ShowModal() != wx.ID_OK:
+				return
+			value = dlg.GetValue()
+			self.ctrl.SetStringItem(index, 1, value)
+			global_config["settings"][key] = value
+		finally:
+			dlg.Destroy()
+		self.OnSave(None)
+
+	def OnSave(self, e):
+		fd = open(os.path.join("data", "global_settings.json"), "w")
+		fd.write(json.dumps(global_config["settings"], indent=2)+"\n")
+		fd.close()
+
+	def OnReset(self, e):
+		dlg = wx.MessageDialog(None, "Reset all values to factory defaults?", "Reset", wx.YES_NO | wx.ICON_QUESTION)
+		if dlg.ShowModal() == wx.ID_YES:
+			global_config["settings"] = global_config["default_settings"].copy()
+			for i, key in enumerate(self.keys):
+				self.ctrl.SetStringItem(i, 1, global_config["settings"][key])
+			self.OnSave(None)
+		dlg.Destroy()
+
 class RTSCManagerFrame(wx.Frame):
 	def __init__(self):
-		wx.Frame.__init__(self, None, -1, "Project Manager", wx.DefaultPosition, wx.Size(280, 55+40*5))
+		wx.Frame.__init__(self, None, -1, "Project Manager (v%i.%i)" % rtsc.version, wx.DefaultPosition, wx.Size(280, 55+40*6))
 
 		menubar = wx.MenuBar()
 		filemenu = wx.Menu()
@@ -292,6 +368,7 @@ class RTSCManagerFrame(wx.Frame):
 				{"art": wx.ART_FILE_OPEN, "label": "Open Project", "f": self.OnOpen},
 				{"art": wx.ART_HELP_BOOK, "label": "Tutorial", "f": self.OnTutorial},
 				{"art": wx.ART_FOLDER_OPEN, "label": "Projects Directory", "f": self.OnDirectory},
+				{"art": wx.ART_INFORMATION, "label": "Global Settings", "f": self.OnGlobalSettings},
 				{"art": wx.ART_QUIT, "label": "Quit", "f": self.OnQuit},
 #				{"art": wx.ART_HARDDISK, "label": "Foobar", "f": self.OnNew},
 #				{"art": wx.ART_CROSS_MARK, "label": "Foobar", "f": self.OnNew},
@@ -307,6 +384,7 @@ class RTSCManagerFrame(wx.Frame):
 		self.SetSizer(top_sizer)
 
 		self.done_tutorial = False
+		self.global_settings_frame = None
 
 	def OnOpen(self, new=False):
 		dlg = wx.DirDialog(self, style=wx.DD_DEFAULT_STYLE|wx.DD_DIR_MUST_EXIST,
@@ -319,7 +397,7 @@ class RTSCManagerFrame(wx.Frame):
 			dlg.Destroy()
 		print "Opening project", project_path
 		if ProjectBuilder.open_project(project_path):
-			self.Destroy()
+			self.do_destroy()
 
 	def OnNew(self, new=False):
 		dlg = wx.TextEntryDialog(self, "Project file name:\n(Good style is all lowercase, no symbols or spaces.)", "New project...")
@@ -336,7 +414,12 @@ class RTSCManagerFrame(wx.Frame):
 		print "Creating project", project_path
 		ProjectBuilder.create_empty_project(project_path)
 		if ProjectBuilder.open_project(project_path):
-			self.Destroy()
+			self.do_destroy()
+
+	def do_destroy(self):
+		if self.global_settings_frame:
+			self.global_settings_frame.Destroy()
+		self.Destroy()
 
 	def OnTutorial(self, e):
 		if not self.done_tutorial:
@@ -348,6 +431,13 @@ class RTSCManagerFrame(wx.Frame):
 	def OnDirectory(self, e):
 		ProjectBuilder.open_directory("projects")
 
+	def OnGlobalSettings(self, e):
+		if not self.global_settings_frame:
+			self.global_settings_frame = GlobalSettingsFrame()
+			self.global_settings_frame.Show(True)
+		else:
+			self.global_settings_frame.Raise()
+
 	def OnQuit(self, e):
 		app.Exit()
 
@@ -357,12 +447,24 @@ class RTSCMainApp(wx.App):
 		frame.Show(True)
 		return True
 
+# Load up the static configuration file.
 txt = []
 for line in open(os.path.join("data", "extensions.config")):
 	line = line.split("#")[0].strip()
 	if not line: continue
 	txt.append(line)
 global_config = json.loads("\n".join(txt))
+
+# Load up the user-editable settings.
+try:
+	path = os.path.join("data", "global_settings.json")
+	fd = open(path)
+except:
+	print path, "missing -- using defaults."
+	global_config["settings"] = global_config["default_settings"].copy()
+else:
+	global_config["settings"] = json.load(fd)
+	fd.close()
 
 # Read in the sizes of various compilation targets.
 global_config["target_size"] = {}

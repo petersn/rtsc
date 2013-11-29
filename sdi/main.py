@@ -131,7 +131,7 @@ class SDIMainFrame(wx.Frame):
 		finally:
 			dlg.Destroy()
 		self.OnSave(None)
- 
+
 	def NewType(self, e): self.dm.new_of("types")
 	def NewDatum(self, e): self.dm.new_of("data")
 	def NewCode(self, e): self.dm.new_of("code")

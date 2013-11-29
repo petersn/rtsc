@@ -667,13 +667,7 @@ class Timer:
 		if args.v:
 			print green+self.msg+normal, "%.3fs" % (end - self.start)
 
-class Chdir:
-	def __init__(self, path): self.path = path
-	def __enter__(self):
-		self.old_path = os.getcwd()
-		os.chdir(self.path)
-	def __exit__(self, t, val, tb):
-		os.chdir(self.old_path)
+from dirtree import Chdir
 
 if __name__ == "__main__":
 	import argparse
@@ -788,6 +782,7 @@ The options --{host,chan,key} are equivalent to the project file options {host,c
 			exit()
 		if not parser.has_option("config", "main_file"):
 			print "rtsc: project file's config section has no main_file"
+			exit()
 		compilation_inputs = [ os.path.join(project_root, parser.get("config", "main_file")) ]
 	else:
 		project_root = "."

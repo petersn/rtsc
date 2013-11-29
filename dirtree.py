@@ -11,11 +11,15 @@ class Chdir:
 		os.chdir(self.old_path)
 
 class treeNode:
+	def __init__(self):
+		self.parent = None
+
 	def is_file(self):
 		return False
 
 class treeFile(treeNode):
 	def __init__(self, full_path):
+		treeNode.__init__(self)
 		self.name = os.path.split(full_path)[1]
 		self.full_path = full_path
 
@@ -52,6 +56,7 @@ class treeLink(treeFile):
 
 class treeDirectory(treeNode):
 	def __init__(self, full_path):
+		treeNode.__init__(self)
 		self.name = os.path.split(full_path)[1]
 		self.full_path = full_path
 		self.children = []
@@ -85,8 +90,10 @@ def build_tree(path):
 		return treeLink(path)
 	elif os.path.isdir(path):
 		x = treeDirectory(path)
-		for child in os.listdir(path):
-			x.children.append(build_tree(os.path.join(path, child)))
+		for child_path in os.listdir(path):
+			child = build_tree(os.path.join(path, child_path))
+			child.parent = x
+			x.children.append(child)
 		return x
 	elif os.path.isfile(path):
 		return treeFile(path)

@@ -2,6 +2,7 @@
 
 import string
 import wx
+import wx.stc
 
 singularize = {
 	"types": "type",
@@ -24,12 +25,14 @@ class TopLevelEntry:
 
 		# Data for various things this could be.
 		self.parents = []
+		self.code_text = None
 
 	def serialize(self):
 		return {
 			"which": self.which,
 			"name": self.name,
 			"parents": [i.name for i in self.parents],
+			"code": self.code_text,
 		}
 
 	@staticmethod
@@ -104,9 +107,9 @@ class TopLevelEntryFrame(wx.Panel):
 
 		self.notebook = wx.Notebook(self, -1)
 		props_panel = wx.Panel(self.notebook, -1)
-		self.notebook.AddPage(props_panel, "Props")
+		self.notebook.AddPage(props_panel, "Properties")
 
-		# Build the props tab.
+		# Build the properties tab.
 		column = wx.BoxSizer(wx.VERTICAL)
 		name_row = wx.BoxSizer(wx.HORIZONTAL)
 		name_row.Add(wx.StaticText(props_panel, -1, "Name:"), 0, wx.EXPAND)
@@ -134,6 +137,18 @@ class TopLevelEntryFrame(wx.Panel):
 			edit_row.Add(remove_parent_button, 1, wx.EXPAND)
 			column.Add(self.parents_list, 1, wx.EXPAND)
 			column.Add(edit_row, 0, wx.EXPAND)
+
+		# Build the code tab, if we're code.
+		if self.entry.which == "code":
+			code_panel = wx.Panel(self.notebook, -1)
+			self.notebook.AddPage(code_panel, "Code")
+			code_font = wx.Font(12, wx.MODERN, wx.NORMAL, wx.NORMAL)
+			self.code_text = wx.stc.StyledTextCtrl(code_panel, -1, style=wx.stc.STC_STYLE_LINENUMBER)
+			self.code_text.StyleSetFont(wx.stc.STC_STYLE_DEFAULT, code_font)
+			self.code_text.Bind(wx.EVT_CHAR, self.OnCodeEdit)
+			column = wx.BoxSizer(wx.VERTICAL)
+			column.Add(self.code_text, 1, wx.EXPAND)
+			code_panel.SetSizer(column)
 
 		top_sizer = wx.BoxSizer(wx.VERTICAL)
 		top_sizer.Add(self.notebook, 1, wx.EXPAND)
@@ -176,6 +191,10 @@ class TopLevelEntryFrame(wx.Panel):
 			self.OnNameChange(None)
 			self.name_box.SetInsertionPoint(len(self.name_box.GetValue()))
 		else: e.Skip()
+
+	def OnCodeEdit(self, e):
+		self.entry.code_text = self.code_text.GetText()
+		e.Skip()
 
 	def OnClose(self, e):
 		self.Close()
