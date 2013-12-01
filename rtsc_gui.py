@@ -2,10 +2,12 @@
 
 import sys, subprocess, time
 import rtsc, rtsc_project, dirtree
-import compilation, webbrowser
+import webbrowser
 import json, os, wx
 import wxLED
 import wx.lib.buttons
+
+from rtsc_config import global_config
 
 class ProjectBuilder:
 	last_issued = {}
@@ -49,17 +51,26 @@ class ProjectBuilder:
 		subprocess.Popen([cmd, path], shell=shell)
 
 class RTSCMainFrame(wx.Frame):
-	checklist = [
-		{"header": "Required to run:",
-			"sub": ["At least one source", "All sources valid", "All resources exist", "One toolkit module imported", "Not more than one toolkit module imported", "Toolkit module configured"]},
-		{"header": "Additionally required to build:",
-			"sub": ["At least one target installed", "At least one target selected"]},
-		{"header": "Additionally required to publish:",
-			"sub": ["Publishing server set", "Publishing server keys", "Publishing server configured"]},
-	]
-
 	def __init__(self, project_path):
 		wx.Frame.__init__(self, None, -1, "RTSC", wx.DefaultPosition, wx.Size(600, 500))
+
+		self.checklist = [
+			{"header": "Required to run:",
+				"sub": [
+					("At least one source", lambda: any(n.is_file() and n.full_path.endswith(".rtsc")
+						for n in self.project_handle.get_nodes())),
+					("All sources valid", lambda: 2),
+					("All resources exist", lambda: 2),
+					("One toolkit module imported", lambda: 2),
+					("Not more than one toolkit module imported", lambda: 2),
+					("Toolkit module configured", lambda: 2)]},
+			{"header": "Additionally required to build:",
+				"sub": [
+					("At least one target installed", lambda: 2*bool(global_config["target_size"])),
+					("At least one target selected", lambda: 2*any(i["build"] for i in self.comp_data.itervalues()))]},
+	#		{"header": "Additionally required to publish:",
+	#			"sub": ["Publishing server set", "Publishing server keys", "Publishing server configured"]},
+		]
 
 		self.project_path = project_path
 		self.project_handle = rtsc_project.Project(project_path)
@@ -97,8 +108,13 @@ class RTSCMainFrame(wx.Frame):
 		text.SetFont(font)
 		column.Add(text)
 		column.Add((0,0), 1)
+		def open_thing(handler, path):
+			getattr(rtsc_project, handler)().open_file(chdir=os.path.join(self.project_path, path))
 		for text, func in [
-				("Open Projects Directory", lambda e: ProjectBuilder.open_directory(project_path)),
+				("Open Text Editor", lambda e: open_thing("Text_Handler", "data")),
+				("Open Image Editor", lambda e: open_thing("Image_Handler", "data")),
+				("Open SDI Editor", lambda e: open_thing("SDI_Handler", "sdi")),
+				("Open Project Directory", lambda e: ProjectBuilder.open_directory(project_path)),
 				("Run Project", self.OnRun),
 				("Build Project", self.OnBuild),
 			]:
@@ -112,7 +128,7 @@ class RTSCMainFrame(wx.Frame):
 		self.notebook.AddPage(checklist_panel, "Checklist")
 		column = wx.BoxSizer(wx.VERTICAL)
 		self.indicators = []
-		for i, section in enumerate(RTSCMainFrame.checklist):
+		for i, section in enumerate(self.checklist):
 			column.Add((0,5))
 			column.Add(wx.StaticText(checklist_panel, -1, section["header"]))
 			column.Add((0,5))
@@ -122,12 +138,16 @@ class RTSCMainFrame(wx.Frame):
 				row = wx.BoxSizer(wx.HORIZONTAL)
 				row.Add(self.indicators[-1])
 				row.Add((10,0))
-				row.Add(wx.StaticText(checklist_panel, -1, requirement))
+				row.Add(wx.StaticText(checklist_panel, -1, requirement[0]))
 				column.Add(row)
 				column.Add((0,5))
+		column.Add((0,0), 1)
+		button = wx.Button(checklist_panel, -1, "Recompute (slow!)")
+		button.Bind(wx.EVT_BUTTON, self.OnUpdateIndicators)
+		column.Add(button, 0, wx.EXPAND)
 		checklist_panel.SetSizer(column)
 
-		self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnUpdateIndicators)
+		#self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnUpdateIndicators)
 
 		compilation_panel = wx.Panel(self.notebook, -1)
 		self.notebook.AddPage(compilation_panel, "Targets")
@@ -221,11 +241,14 @@ class RTSCMainFrame(wx.Frame):
 
 		# Reload all data.
 		self.OnReload(None)
-		self.OnUpdateIndicators(None)
 		self.OnUpdateTargetInfo(None)
 
 	def OnUpdateIndicators(self, e):
-		pass
+		index = 0
+		for section in self.checklist:
+			for requirement in section["sub"]:
+				self.indicators[index].SetState(requirement[1]())
+				index += 1
 		# Not two toolkit modules.
 #		self.indicators[3].SetState(2)
 		# Check if we have at least one target installed.
@@ -423,7 +446,7 @@ class RTSCManagerFrame(wx.Frame):
 
 	def OnTutorial(self, e):
 		if not self.done_tutorial:
-			url = "http://rtsc.mit.edu/docs/%s.%s/tutorial" % rtsc.version
+			url = "http://rtsc.mit.edu/wiki/Docs/%s.%s/Tutorial" % rtsc.version
 			self.done_tutorial = True
 			print "Directing browser to", url
 			webbrowser.open(url)
@@ -446,30 +469,6 @@ class RTSCMainApp(wx.App):
 		frame = RTSCManagerFrame()
 		frame.Show(True)
 		return True
-
-# Load up the static configuration file.
-txt = []
-for line in open(os.path.join("data", "extensions.config")):
-	line = line.split("#")[0].strip()
-	if not line: continue
-	txt.append(line)
-global_config = json.loads("\n".join(txt))
-
-# Load up the user-editable settings.
-try:
-	path = os.path.join("data", "global_settings.json")
-	fd = open(path)
-except:
-	print path, "missing -- using defaults."
-	global_config["settings"] = global_config["default_settings"].copy()
-else:
-	global_config["settings"] = json.load(fd)
-	fd.close()
-
-# Read in the sizes of various compilation targets.
-global_config["target_size"] = {}
-for target in compilation.capabilities():
-	global_config["target_size"][target] = compilation.get_size(target)
 
 if __name__ == "__main__":
 	app = RTSCMainApp(0)

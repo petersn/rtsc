@@ -4,6 +4,9 @@ import json
 import wx
 import sdigui
 import sdi_data_model
+import os, sys
+
+data_directory = os.path.join(os.path.dirname(sys.argv[0]), "data")
 
 class SDIMainFrame(wx.Frame):
 	FILE_WILDCARD = "SDI Data (*.sdi)|*.sdi|All Files (*)|*"
@@ -33,9 +36,8 @@ class SDIMainFrame(wx.Frame):
 		# Here is the leftmost tree.
 		self.data_tree = wx.TreeCtrl(self.splitter, -1, style=wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
 		image_list = wx.ImageList(16, 16)
-		image_list.Add(wx.Image('data/type_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
-		image_list.Add(wx.Image('data/datum_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
-		image_list.Add(wx.Image('data/gear_icon.png', wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
+		for p in ["type_icon.png", "datum_icon.png", "gear_icon.png"]:
+			image_list.Add(wx.Image(os.path.join(data_directory, p), wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
 		self.data_tree.AssignImageList(image_list)
 		self.data_tree_root = None
 
@@ -45,10 +47,17 @@ class SDIMainFrame(wx.Frame):
 
 		self.outer_sizer = wx.BoxSizer(wx.VERTICAL)
 		self.toolbar = wx.ToolBar(self, -1, style=wx.TB_HORIZONTAL|wx.NO_BORDER)
-		self.toolbar.AddSimpleTool(1, wx.Image('data/type_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Type", '')
-		self.toolbar.AddSimpleTool(2, wx.Image('data/datum_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Datum", '')
-		self.toolbar.AddSimpleTool(3, wx.Image('data/gear_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Code", '')
-		self.toolbar.AddSimpleTool(10, wx.Image('data/x_icon.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "Delete Entry", '')
+		for i, entry in enumerate([
+				("type_icon_wp.png", "New Type", self.NewType),
+				("datum_icon_wp.png", "New Type", self.NewDatum),
+				("gear_icon_wp.png", "New Type", self.NewCode),
+				("x_icon.png", "Delete Entry", self.DeleteEntry),
+			]):
+			self.toolbar.AddSimpleTool(i, wx.Image(os.path.join(data_directory, entry[0]), wx.BITMAP_TYPE_PNG).ConvertToBitmap(), entry[1], "")
+			self.Bind(wx.EVT_TOOL, entry[2], id=i)		
+#		self.toolbar.AddSimpleTool(2, wx.Image('data/datum_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Datum", '')
+#		self.toolbar.AddSimpleTool(3, wx.Image('data/gear_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Code", '')
+#		self.toolbar.AddSimpleTool(10, wx.Image('data/x_icon.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "Delete Entry", '')
 #		self.bar_sizer = wx.BoxSizer(wx.HORIZONTAL)
 #		self.bar_sizer.Add(self.compile_button, 0, 0)
 		self.splitter.SplitVertically(self.data_tree, self.main_notebook, 250)
@@ -60,11 +69,6 @@ class SDIMainFrame(wx.Frame):
 		self.SetSizer(self.outer_sizer)
 
 		self.rebuild_data_tree()
-
-		self.Bind(wx.EVT_TOOL, self.NewType, id=1)
-		self.Bind(wx.EVT_TOOL, self.NewDatum, id=2)
-		self.Bind(wx.EVT_TOOL, self.NewCode, id=3)
-		self.Bind(wx.EVT_TOOL, self.DeleteEntry, id=10)
 
 		self.data_tree.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.OnTreeSelect)
 
@@ -99,12 +103,17 @@ class SDIMainFrame(wx.Frame):
 		try:
 			if dlg.ShowModal() != wx.ID_OK:
 				return
-			self.save_to_path = dlg.GetPath()
-			fd = open(self.save_to_path)
-			data = fd.read()
-			fd.close()
+			save_to_path = dlg.GetPath()
 		finally:
 			dlg.Destroy()
+		self.load_from_path(save_to_path)
+
+	def load_from_path(self, path):
+		print "Loading from", path
+		self.save_to_path = path
+		fd = open(path)
+		data = fd.read()
+		fd.close()
 		obj = json.loads(data)
 		self.dm.load_from(obj["dm"])
 
@@ -112,6 +121,7 @@ class SDIMainFrame(wx.Frame):
 		if self.save_to_path is None:
 			self.OnSaveAs(None)
 		else:
+			print "Saving to", self.save_to_path
 			obj = {}
 			obj["dm"] = self.dm.serialize()
 			s = json.dumps(obj, indent=2)
@@ -164,6 +174,8 @@ class SDIMainFrame(wx.Frame):
 class SDIMainApp(wx.App):
 	def OnInit(self):
 		frame = SDIMainFrame()
+		if len(sys.argv) == 2:
+			frame.load_from_path(sys.argv[1])
 		frame.Show(True)
 		return True
 

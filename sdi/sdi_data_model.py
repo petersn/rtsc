@@ -40,6 +40,8 @@ class TopLevelEntry:
 		entry = parent.new_of(obj["which"])
 		entry.rename_entry(obj["name"])
 		entry.parents = obj["parents"]
+		if entry.which == "code":
+			entry.code_text = obj["code"]
 		return entry
 
 	def link_up_references(self):
@@ -146,6 +148,8 @@ class TopLevelEntryFrame(wx.Panel):
 			self.code_text = wx.stc.StyledTextCtrl(code_panel, -1, style=wx.stc.STC_STYLE_LINENUMBER)
 			self.code_text.StyleSetFont(wx.stc.STC_STYLE_DEFAULT, code_font)
 			self.code_text.Bind(wx.EVT_CHAR, self.OnCodeEdit)
+			self.code_text.Bind(wx.EVT_KILL_FOCUS, self.OnCodeEdit)
+			self.code_text.AddText(self.entry.code_text or "")
 			column = wx.BoxSizer(wx.VERTICAL)
 			column.Add(self.code_text, 1, wx.EXPAND)
 			code_panel.SetSizer(column)

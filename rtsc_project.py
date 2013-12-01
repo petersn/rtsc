@@ -6,20 +6,22 @@ Manages a project directory, and exposes useful functionality.
 import dirtree
 import os, sys, subprocess
 
+from rtsc_config import global_config
+
 class EditorHandler: pass
 
 class PyAppHandler(EditorHandler):
-	def open_file(self, path):
-		subprocess.call([sys.executable, self.py_path, path])
+	def open_file(self, path=None, chdir=None):
+		subprocess.Popen([sys.executable, os.path.abspath(self.py_path)] + ([path] if path is not None else []), cwd=chdir)
 
-class GenericOSEditor(EditorHandler):
-	def open_file(self, path):
-		pass
+class FromSettingsEditor(EditorHandler):
+	def open_file(self, path=None, chdir=None):
+		subprocess.Popen([global_config["settings"][self.var]] + ([path] if path is not None else []), cwd=chdir)
 
-class SDI_Handler(PyAppHandler): py_path = os.path.join("sdi", "sdi_main.py")
+class SDI_Handler(PyAppHandler): py_path = os.path.join("sdi", "main.py")
 class Blocks_Handler(PyAppHandler): py_path = "blocks.py"
-class Image_Handler(PyAppHandler): py_path = "find_an_editor.py"
-class Text_Handler(PyAppHandler): py_path = "find_an_editor.py"
+class Image_Handler(FromSettingsEditor): var = "image_editor"
+class Text_Handler(FromSettingsEditor): var = "text_editor"
 
 file_handlers = {
 	".sdi": SDI_Handler,
@@ -48,6 +50,9 @@ class Project:
 
 	def get_nodes_by_handler(self, handler):
 		return [node for node in self.tree.walk() if self.get_handler_for_node(node) == handler]
+
+	def get_nodes(self):
+		return list(self.tree.walk())
 
 if __name__ == "__main__":
 	p = Project("projects/mainproject")
