@@ -36,7 +36,7 @@ class SDIMainFrame(wx.Frame):
 		# Here is the leftmost tree.
 		self.data_tree = wx.TreeCtrl(self.splitter, -1, style=wx.TR_HAS_BUTTONS|wx.SUNKEN_BORDER|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
 		image_list = wx.ImageList(16, 16)
-		for p in ["type_icon.png", "datum_icon.png", "gear_icon.png"]:
+		for p in ["type_icon.png", "datum_icon.png", "gear_icon.png", "blocks_icon.png"]:
 			image_list.Add(wx.Image(os.path.join(data_directory, p), wx.BITMAP_TYPE_PNG).Scale(16, 16).ConvertToBitmap())
 		self.data_tree.AssignImageList(image_list)
 		self.data_tree_root = None
@@ -47,14 +47,18 @@ class SDIMainFrame(wx.Frame):
 
 		self.outer_sizer = wx.BoxSizer(wx.VERTICAL)
 		self.toolbar = wx.ToolBar(self, -1, style=wx.TB_HORIZONTAL|wx.NO_BORDER)
+		self.toolbar.SetRows(2)
+		print "Packing:", self.toolbar.GetToolPacking()
+#		self.toolbar.SetToolPacking(0)
 		for i, entry in enumerate([
 				("type_icon_wp.png", "New Type", self.NewType),
-				("datum_icon_wp.png", "New Type", self.NewDatum),
-				("gear_icon_wp.png", "New Type", self.NewCode),
+				("datum_icon_wp.png", "New Datum", self.NewDatum),
+				("gear_icon_wp.png", "New Code", self.NewCode),
+				("blocks_icon_wp.png", "New Blocks", self.NewBlocks),
 				("x_icon.png", "Delete Entry", self.DeleteEntry),
 			]):
 			self.toolbar.AddSimpleTool(i, wx.Image(os.path.join(data_directory, entry[0]), wx.BITMAP_TYPE_PNG).ConvertToBitmap(), entry[1], "")
-			self.Bind(wx.EVT_TOOL, entry[2], id=i)		
+			self.Bind(wx.EVT_TOOL, entry[2], id=i)
 #		self.toolbar.AddSimpleTool(2, wx.Image('data/datum_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Datum", '')
 #		self.toolbar.AddSimpleTool(3, wx.Image('data/gear_icon_wp.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "New Code", '')
 #		self.toolbar.AddSimpleTool(10, wx.Image('data/x_icon.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "Delete Entry", '')
@@ -87,7 +91,7 @@ class SDIMainFrame(wx.Frame):
 			self.data_tree.DeleteAllItems()
 		self.data_tree_root = self.data_tree.AddRoot("Bug Bug Bug!")
 		self.data_tree_top_levels = {}
-		for name in ("Types", "Data", "Code"):
+		for name in ("Types", "Data", "Code", "Blocks"):
 			self.data_tree_top_levels[name.lower()] = self.data_tree.AppendItem(self.data_tree_root, name)
 
 	def OnNew(self, e):
@@ -145,6 +149,7 @@ class SDIMainFrame(wx.Frame):
 	def NewType(self, e): self.dm.new_of("types")
 	def NewDatum(self, e): self.dm.new_of("data")
 	def NewCode(self, e): self.dm.new_of("code")
+	def NewBlocks(self, e): self.dm.new_of("blocks")
 
 	def DeleteEntry(self, e):
 		sel = self.data_tree.GetSelection()

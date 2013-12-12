@@ -442,7 +442,7 @@ class RTSCManagerFrame(wx.Frame):
 	def do_destroy(self):
 		if self.global_settings_frame:
 			self.global_settings_frame.Destroy()
-		self.Destroy()
+		self.Show(False)
 
 	def OnTutorial(self, e):
 		if not self.done_tutorial:

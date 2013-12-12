@@ -3,11 +3,13 @@
 import string
 import wx
 import wx.stc
+import blocks_editor
 
 singularize = {
 	"types": "type",
 	"data": "datum",
 	"code": "code",
+	"blocks": "blocks",
 }
 
 def get_unique_name(s, dm):
@@ -26,6 +28,7 @@ class TopLevelEntry:
 		# Data for various things this could be.
 		self.parents = []
 		self.code_text = None
+		self.blocks_data = blocks_editor.new_blocks()
 
 	def serialize(self):
 		return {
@@ -33,6 +36,7 @@ class TopLevelEntry:
 			"name": self.name,
 			"parents": [i.name for i in self.parents],
 			"code": self.code_text,
+			"blocks": self.blocks_data,
 		}
 
 	@staticmethod
@@ -50,7 +54,7 @@ class TopLevelEntry:
 
 	def insert(self):
 		self.tree_item = self.parent.frame.data_tree.AppendItem(self.parent.frame.data_tree_top_levels[self.which], self.name)
-		self.parent.frame.data_tree.SetItemImage(self.tree_item, ["types", "data", "code"].index(self.which), 0)
+		self.parent.frame.data_tree.SetItemImage(self.tree_item, ["types", "data", "code", "blocks"].index(self.which), 0)
 		self.parent.frame.data_tree.SetItemPyData(self.tree_item, self)
 
 	def delete(self):
@@ -81,6 +85,9 @@ class TopLevelEntry:
 		return bool(self.edit_frame)
 
 class TopLevelSelector(wx.Dialog):
+	"""
+	Opens up a dialog that selects a top level.
+	"""
 	def __init__(self, parent, id, title, column_name, which, dm):
 		wx.Dialog.__init__(self, parent, id, title, size=(300,500))
 		self.dm, self.which = dm, which
@@ -123,7 +130,7 @@ class TopLevelEntryFrame(wx.Panel):
 		column.Add(name_row, 0, wx.EXPAND)
 		props_panel.SetSizer(column)
 
-		# Add the inheritance list, if we're types.
+		# Add the inheritance list, if we're types or data.
 		if self.entry.which in ("types", "data"):
 			self.parents_list = wx.ListCtrl(props_panel, -1, style=wx.LC_REPORT)
 			self.parents_list.InsertColumn(0, "Parent Type")
@@ -140,6 +147,41 @@ class TopLevelEntryFrame(wx.Panel):
 			column.Add(self.parents_list, 1, wx.EXPAND)
 			column.Add(edit_row, 0, wx.EXPAND)
 
+		# Build the values tab, if we're types or data.
+		if self.entry.which in ("types", "data"):
+			values_panel = wx.Panel(self.notebook, -1)
+			self.notebook.AddPage(values_panel, "Values")
+			self.values_list = wx.ListCtrl(values_panel, -1, style=wx.LC_REPORT)
+			self.values_list.InsertColumn(0, "Field")
+			self.values_list.InsertColumn(1, "Type")
+			self.values_list.InsertColumn(2, "Value")
+			self.values_list.SetColumnWidth(0, 100)
+			self.values_list.SetColumnWidth(1, 100)
+			self.values_list.SetColumnWidth(2, 300)
+			column = wx.BoxSizer(wx.VERTICAL)
+			column.Add(self.values_list, 1, wx.EXPAND)
+			values_panel.SetSizer(column)
+
+		# Build the fields tab, if we're types.
+		if self.entry.which == "types":
+			fields_panel = wx.Panel(self.notebook, -1)
+			self.notebook.AddPage(fields_panel, "Fields")
+			column = wx.BoxSizer(wx.VERTICAL)
+			self.fields_list = wx.ListCtrl(fields_panel, -1, style=wx.LC_REPORT)
+			self.fields_list.InsertColumn(0, "Field")
+			self.fields_list.InsertColumn(1, "Type")
+			self.fields_list.SetColumnWidth(0, 100)
+			self.fields_list.SetColumnWidth(1, 300)
+			column.Add(self.fields_list, 1, wx.EXPAND)
+			fields_panel.SetSizer(column)
+
+		# Build the editor tab, if we're types or data.
+		if self.entry.which in ("types", "data"):
+			self.editor_panel = wx.Panel(self.notebook, -1)
+			self.notebook.AddPage(self.editor_panel, "Editor")
+			self.editor_column = wx.BoxSizer(wx.VERTICAL)
+			self.editor_panel.SetSizer(self.editor_column)
+
 		# Build the code tab, if we're code.
 		if self.entry.which == "code":
 			code_panel = wx.Panel(self.notebook, -1)
@@ -153,6 +195,16 @@ class TopLevelEntryFrame(wx.Panel):
 			column = wx.BoxSizer(wx.VERTICAL)
 			column.Add(self.code_text, 1, wx.EXPAND)
 			code_panel.SetSizer(column)
+
+		# Build the blocks tab, if we're blocks.
+		if self.entry.which == "blocks":
+			blocks_panel = wx.Panel(self.notebook, -1)
+			self.notebook.AddPage(blocks_panel, "Blocks")
+			row = wx.BoxSizer(wx.HORIZONTAL)
+			self.blocks_tree = wx.TreeCtrl(blocks_panel, -1, style=wx.TR_HAS_BUTTONS|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
+			row.Add(self.blocks_tree, 1, wx.EXPAND)
+#			row.Add(self.)
+			blocks_panel.SetSizer(column)
 
 		top_sizer = wx.BoxSizer(wx.VERTICAL)
 		top_sizer.Add(self.notebook, 1, wx.EXPAND)
@@ -211,7 +263,7 @@ class DataModel:
 	def clear_data_model(self):
 		self.frame.rebuild_data_tree()
 		self.frame.notebook_remove_page("Edit")
-		self.top_levels = {"types": [], "data": [], "code": []}
+		self.top_levels = {"types": [], "data": [], "code": [], "blocks": []}
 
 	def new_of(self, which):
 		entry = TopLevelEntry(self, which)
