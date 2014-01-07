@@ -47,9 +47,6 @@ class SDIMainFrame(wx.Frame):
 
 		self.outer_sizer = wx.BoxSizer(wx.VERTICAL)
 		self.toolbar = wx.ToolBar(self, -1, style=wx.TB_HORIZONTAL|wx.NO_BORDER)
-		self.toolbar.SetRows(2)
-		print "Packing:", self.toolbar.GetToolPacking()
-#		self.toolbar.SetToolPacking(0)
 		for i, entry in enumerate([
 				("type_icon_wp.png", "New Type", self.NewType),
 				("datum_icon_wp.png", "New Datum", self.NewDatum),

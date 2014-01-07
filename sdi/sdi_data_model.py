@@ -4,6 +4,9 @@ import string
 import wx
 import wx.stc
 import blocks_editor
+import os, sys
+
+data_directory = os.path.join(os.path.dirname(sys.argv[0]), "data")
 
 singularize = {
 	"types": "type",
@@ -28,7 +31,6 @@ class TopLevelEntry:
 		# Data for various things this could be.
 		self.parents = []
 		self.code_text = None
-		self.blocks_data = blocks_editor.new_blocks()
 
 	def serialize(self):
 		return {
@@ -46,6 +48,8 @@ class TopLevelEntry:
 		entry.parents = obj["parents"]
 		if entry.which == "code":
 			entry.code_text = obj["code"]
+		if entry.which == "blocks":
+			entry.blocks_data
 		return entry
 
 	def link_up_references(self):
@@ -109,7 +113,34 @@ class TopLevelSelector(wx.Dialog):
 		self.choice = self.dm.top_levels[self.which][index]
 		self.EndModal(wx.ID_OK)
 
+being_edited = {}
+
+def open_editor_for_node(parent, node):
+	# If the frame has been closed, remove it from our dictionary.
+	if node in being_edited:
+		if not being_edited[node]:
+			being_edited.pop(node)
+	# Otherwise, pop open an editor.
+	if node not in being_edited and node.is_editable():
+		being_edited[node] = frame = BlocksNodeEditor(parent, node)
+		frame.Show(True)
+
+class BlocksNodeEditor(wx.Frame):
+	def __init__(self, parent, node):
+		wx.Frame.__init__(self, parent, -1, "Edit blocks node", wx.DefaultPosition, wx.Size(300, 400))
+
 class TopLevelEntryFrame(wx.Panel):
+	blocks_setup = [
+		{ "header": "Flow",
+			"buttons": ["if", "while", "for in", "repeat", "spawn", "(organize)"] },
+		{ "header": "Data",
+			"buttons": ["set value", "create object", "delete object"] },
+		{ "header": "Events",
+			"buttons": ["on event", "send event", "wait until"] },
+		{ "header": "Other",
+			"buttons": ["run code", "user block"] },
+	]
+
 	def __init__(self, parent, entry):
 		wx.Panel.__init__(self, parent, -1)#, "Edit", wx.DefaultPosition, wx.Size(400, 500))
 		self.entry = entry
@@ -202,9 +233,27 @@ class TopLevelEntryFrame(wx.Panel):
 			self.notebook.AddPage(blocks_panel, "Blocks")
 			row = wx.BoxSizer(wx.HORIZONTAL)
 			self.blocks_tree = wx.TreeCtrl(blocks_panel, -1, style=wx.TR_HAS_BUTTONS|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
-			row.Add(self.blocks_tree, 1, wx.EXPAND)
-#			row.Add(self.)
-			blocks_panel.SetSizer(column)
+			self.blocks_editor = blocks_editor.BlocksEditor(self.blocks_tree)
+			self.blocks_tree.Bind(wx.EVT_TREE_BEGIN_DRAG, self.OnBeginDrag)
+			self.blocks_tree.Bind(wx.EVT_TREE_END_DRAG, self.OnEndDrag)
+			self.blocks_tree.Bind(wx.EVT_RIGHT_DOWN, self.OnBlocksRightClick)
+			row.Add(self.blocks_tree, 2, wx.EXPAND)
+			self.blocks_nb = wx.Notebook(blocks_panel, -1, style=wx.NB_RIGHT)
+			for i, section in enumerate(self.blocks_setup):
+				buttons_page = wx.Panel(self.blocks_nb, -1, style=wx.NO_BORDER)
+				column = wx.BoxSizer(wx.VERTICAL)
+#				toolbar_one = wx.ToolBar(buttons_page, -1, style=wx.TB_VERTICAL)
+				for i, name in enumerate(section["buttons"]):
+					bttn = wx.Button(buttons_page, -1, name)
+					# Silly workaround for Python closure semantics.
+					(lambda _name: bttn.Bind(wx.EVT_BUTTON, lambda e: self.OnBlocksButton(_name, e)))(name)
+					column.Add(bttn, 0, wx.EXPAND)
+#				toolbar_one.AddSimpleTool(i, wx.Image(os.path.join(data_directory, "datum_icon.png"), wx.BITMAP_TYPE_PNG).ConvertToBitmap(), "Datum", "")
+#				column.Add(toolbar_one, 1, wx.EXPAND)
+				buttons_page.SetSizer(column)
+				self.blocks_nb.AddPage(buttons_page, section["header"])
+			row.Add(self.blocks_nb, 0, wx.EXPAND)
+			blocks_panel.SetSizer(row)
 
 		top_sizer = wx.BoxSizer(wx.VERTICAL)
 		top_sizer.Add(self.notebook, 1, wx.EXPAND)
@@ -217,6 +266,27 @@ class TopLevelEntryFrame(wx.Panel):
 		self.SetAcceleratorTable(accel_tbl)
 
 		# Check the SDI model
+
+	def OnBeginDrag(self, e):
+		print "Begin"
+		e.Allow()
+		self.blocks_drag_item = e.GetItem()
+
+	def OnEndDrag(self, e):
+		print "End"
+		if not e.GetItem().IsOk(): return
+		new = e.GetItem()
+		self.blocks_editor.drag(self.blocks_drag_item, new)
+
+	def OnBlocksButton(self, name, e):
+		self.blocks_editor.add_new(name)
+
+	def OnBlocksRightClick(self, e):
+		pt = e.GetPosition();
+		item, flags = self.blocks_tree.HitTest(pt)
+		node = self.blocks_tree.GetPyData(item)
+		open_editor_for_node(self, node)
+		e.Skip()
 
 	def AddParent(self, e):
 		dlg = TopLevelSelector(self, -1, "Choose a type...", "Types", "types", self.entry.parent)
