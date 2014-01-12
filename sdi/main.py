@@ -2,7 +2,6 @@
 
 import json
 import wx
-import sdigui
 import sdi_data_model
 import os, sys
 

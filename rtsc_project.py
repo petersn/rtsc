@@ -19,13 +19,11 @@ class FromSettingsEditor(EditorHandler):
 		subprocess.Popen([global_config["settings"][self.var]] + ([path] if path is not None else []), cwd=chdir)
 
 class SDI_Handler(PyAppHandler): py_path = os.path.join("sdi", "main.py")
-class Blocks_Handler(PyAppHandler): py_path = "blocks.py"
 class Image_Handler(FromSettingsEditor): var = "image_editor"
 class Text_Handler(FromSettingsEditor): var = "text_editor"
 
 file_handlers = {
 	".sdi": SDI_Handler,
-	".blocks": Blocks_Handler,
 	".rtsc": Text_Handler,
 	".txt": Text_Handler,
 	".js": Text_Handler,
