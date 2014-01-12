@@ -21,6 +21,14 @@ class BlocksNode:
 		self.children = []
 		self.replaceable = False
 
+	def populate_from(self, data_list):
+		for element in data_list:
+			new = BlocksNode(self.tree, element["name"])
+			self.add(new)
+			new.populate_from(element["children"])
+		for child in self.children:
+			child.check_block_signature()
+
 	def add(self, node):
 		self.add_before(len(self.children)+1, node)
 
@@ -71,6 +79,12 @@ class BlocksNode:
 	def is_editable(self):
 		return not self.get_replace_me()
 
+	def serialize(self):
+		return {
+			"name": self.name,
+			"children": [child.serialize() for child in self.children],
+		}
+
 	def __repr__(self):
 		return "["+self.name+"]"
 
@@ -88,6 +102,7 @@ class BlocksEditor:
 			for subname in blocks_signatures[name]:
 				new.add(BlocksNode(self.tree, subname))
 		self.tree.Expand(new.node)
+		return new
 
 	def drag(self, a, b):
 		a, b = map(self.tree.GetItemPyData, (a, b))
@@ -112,5 +127,8 @@ class BlocksEditor:
 			b.parent.add_before(b.parent.children.index(b), a)
 
 	def serialize(self):
-		
+		return self.tree_root.serialize()["children"]
+
+	def populate_from(self, data_list):
+		self.tree_root.populate_from(data_list)
 

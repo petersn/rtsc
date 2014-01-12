@@ -31,29 +31,41 @@ class TopLevelEntry:
 		# Data for various things this could be.
 		self.parents = []
 		self.code_text = None
+		self.blocks_data = []
 
 	def serialize(self):
-		return {
+		everything = {
 			"which": self.which,
 			"name": self.name,
 			"parents": [i.name for i in self.parents],
 			"code": self.code_text,
 			"blocks": self.blocks_data,
 		}
+		pruned = {}
+		# Only store the fields we need to.
+		for field in {
+			"types": ("name", "which", "parents"),
+			"data": ("name", "which", "parents"),
+			"code": ("name", "which", "code"),
+			"blocks": ("name", "which", "blocks"),
+		}[self.which]: pruned[field] = everything[field]
+		return pruned
 
 	@staticmethod
 	def load_from(obj, parent):
 		entry = parent.new_of(obj["which"])
 		entry.rename_entry(obj["name"])
-		entry.parents = obj["parents"]
+		if entry.which in ("types", "data"):
+			entry.parents = obj["parents"]
 		if entry.which == "code":
 			entry.code_text = obj["code"]
 		if entry.which == "blocks":
-			entry.blocks_data
+			entry.blocks_data = obj["blocks"]
 		return entry
 
 	def link_up_references(self):
 		# Look up named parents.
+		# Note that self.parent is a DataModel, and self.parents is a list of TopLevelEntrys.
 		self.parents = map(self.parent.get_by_name, self.parents)
 
 	def insert(self):
@@ -234,6 +246,7 @@ class TopLevelEntryFrame(wx.Panel):
 			row = wx.BoxSizer(wx.HORIZONTAL)
 			self.blocks_tree = wx.TreeCtrl(blocks_panel, -1, style=wx.TR_HAS_BUTTONS|wx.TR_HIDE_ROOT|wx.TR_FULL_ROW_HIGHLIGHT)
 			self.blocks_editor = blocks_editor.BlocksEditor(self.blocks_tree)
+			self.blocks_editor.populate_from(entry.blocks_data)
 			self.blocks_tree.Bind(wx.EVT_TREE_BEGIN_DRAG, self.OnBeginDrag)
 			self.blocks_tree.Bind(wx.EVT_TREE_END_DRAG, self.OnEndDrag)
 			self.blocks_tree.Bind(wx.EVT_RIGHT_DOWN, self.OnBlocksRightClick)
@@ -277,9 +290,11 @@ class TopLevelEntryFrame(wx.Panel):
 		if not e.GetItem().IsOk(): return
 		new = e.GetItem()
 		self.blocks_editor.drag(self.blocks_drag_item, new)
+		self.entry.blocks_data = self.blocks_editor.serialize() # TODO: Make this less inefficient!
 
 	def OnBlocksButton(self, name, e):
 		self.blocks_editor.add_new(name)
+		self.entry.blocks_data = self.blocks_editor.serialize() # TODO: Make this less inefficient!
 
 	def OnBlocksRightClick(self, e):
 		pt = e.GetPosition();
