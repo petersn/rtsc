@@ -93,6 +93,14 @@ def file_size_words(bytes):
 
 import wx
 
+def check_for_pressing_update(callback):
+	import thread
+	def _():
+		inspector = UpdateInspector()
+		if any(action.data["pressing"] for action in inspector.actions):
+			callback(inspector)
+	thread.start_new_thread(_, ())
+
 class ProgressFrame(wx.Frame):
 	def __init__(self, action):
 		self.action = action

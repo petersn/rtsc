@@ -29,7 +29,7 @@ An example of using this lexer:
 	[GCC 4.4.1] on linux2
 	Type "help", "copyright", "credits" or "license" for more information.
 	>>> from lexer import Lexer
-	>>> l = Lexer("lexer.rxl")
+	>>> l = Lexer(open("lexer.rxl").read())
 	>>> l("3 / (17.-.0001)")
 	[('integer', '3'), ('operator', '/'), ('open_paren', '('), ('float', '17.'), ('operator', '-'), ('float', '.0001'), ('close_paren', ')')]
 	>>> l(" 3 + badinput ")
@@ -43,7 +43,7 @@ import re
 
 class Lexer:
 	def __init__(self, text):
-		self.names = [ ]
+		self.names = []
 
 		for line in text.split("\n"):
 			line = line.split("##")[0].strip()
@@ -75,7 +75,7 @@ class Lexer:
 
 if __name__ == "__main__":
 	try:
-		lex = Lexer("lexer.rxl")
+		lex = Lexer(open("data/lexer.rxl").read())
 	except IOError, e:
 		print e
 		print "No lexer found. Make a lexer file, and try again."

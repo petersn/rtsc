@@ -410,6 +410,15 @@ class RTSCManagerFrame(wx.Frame):
 		self.done_tutorial = False
 		self.global_settings_frame = None
 
+		if global_config["settings"]["update_check_on_startup"].lower() in ("1", "yes", "true"):
+			import rtsc_updater
+			rtsc_updater.check_for_pressing_update(self.OnThereAreUpdates)
+
+	def OnThereAreUpdates(self, inspector):
+		def _():
+			wx.MessageBox("A new version of RTSC is available.", 'Updates', wx.OK | wx.ICON_INFORMATION)
+		wx.CallAfter(_)
+
 	def OnOpen(self, new=False):
 		dlg = wx.DirDialog(self, style=wx.DD_DEFAULT_STYLE|wx.DD_DIR_MUST_EXIST,
 			message="Open project...", defaultPath="projects")
