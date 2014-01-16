@@ -362,7 +362,7 @@ class GlobalSettingsFrame(wx.Frame):
 
 class RTSCManagerFrame(wx.Frame):
 	def __init__(self):
-		wx.Frame.__init__(self, None, -1, "Project Manager (v%i.%i)" % rtsc.version, wx.DefaultPosition, wx.Size(280, 55+40*6))
+		wx.Frame.__init__(self, None, -1, "Project Manager (v%i.%i)" % rtsc.version, wx.DefaultPosition, wx.Size(280, 55+40*7))
 
 		menubar = wx.MenuBar()
 		filemenu = wx.Menu()
@@ -392,6 +392,7 @@ class RTSCManagerFrame(wx.Frame):
 				{"art": wx.ART_HELP_BOOK, "label": "Tutorial", "f": self.OnTutorial},
 				{"art": wx.ART_FOLDER_OPEN, "label": "Projects Directory", "f": self.OnDirectory},
 				{"art": wx.ART_INFORMATION, "label": "Global Settings", "f": self.OnGlobalSettings},
+				{"art": wx.ART_HARDDISK, "label": "Update RTSC", "f": self.OnUpdateRTSC},
 				{"art": wx.ART_QUIT, "label": "Quit", "f": self.OnQuit},
 #				{"art": wx.ART_HARDDISK, "label": "Foobar", "f": self.OnNew},
 #				{"art": wx.ART_CROSS_MARK, "label": "Foobar", "f": self.OnNew},
@@ -460,6 +461,16 @@ class RTSCManagerFrame(wx.Frame):
 			self.global_settings_frame.Show(True)
 		else:
 			self.global_settings_frame.Raise()
+
+	def OnUpdateRTSC(self, e):
+		# Close other windows, if necessary.
+		if self.global_settings_frame:
+			self.global_settings_frame.Close()
+		# First, check for updates.
+		import rtsc_updater
+		new_frame = rtsc_updater.UpdaterFrame()
+		new_frame.Show(True)
+		self.Close()
 
 	def OnQuit(self, e):
 		app.Exit()

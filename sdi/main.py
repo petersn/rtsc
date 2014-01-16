@@ -127,6 +127,7 @@ class SDIMainFrame(wx.Frame):
 			s = json.dumps(obj, indent=2)
 			fd = open(self.save_to_path, "w")
 			fd.write(s)
+			fd.write("\n")
 			fd.close()
 
 	def OnSaveAs(self, e):

@@ -4,7 +4,9 @@
 	# If data/global_settings.json isn't present, use these values instead.
 	"default_settings": {
 		"text_editor": "gedit",
-		"image_editor": "image_edit"
+		"image_editor": "image_edit",
+		"updater_url": "https://rtsc.mit.edu:50505/",
+		"updater_cert_path": "data/rtsc_updater.crt"
 	},
 
 	# All supported targets.
@@ -41,7 +43,7 @@
 			"default_path": "_wii" }
 	],
 
-	# Modules, and their supported targets.{
+	# Modules, and their supported targets.
 	"modules": [
 		{ "name": "basic2d"
 			
