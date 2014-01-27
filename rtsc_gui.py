@@ -318,8 +318,8 @@ class GlobalSettingsFrame(wx.Frame):
 		self.ctrl = wx.ListCtrl(self, -1, style=wx.LC_REPORT)
 		self.ctrl.InsertColumn(0, "Field")
 		self.ctrl.InsertColumn(1, "Value")
-		self.ctrl.SetColumnWidth(0, 150)
-		self.ctrl.SetColumnWidth(1, 350)
+		self.ctrl.SetColumnWidth(0, 200)
+		self.ctrl.SetColumnWidth(1, 300)
 		self.keys = global_config["settings"].keys()
 		for key in self.keys:
 			i = self.ctrl.GetItemCount()

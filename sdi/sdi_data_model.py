@@ -127,19 +127,19 @@ class TopLevelSelector(wx.Dialog):
 
 being_edited = {}
 
-def open_editor_for_node(parent, node):
+def open_editor_for_node(frame_parent, node):
 	# If the frame has been closed, remove it from our dictionary.
 	if node in being_edited:
 		if not being_edited[node]:
 			being_edited.pop(node)
 	# Otherwise, pop open an editor.
 	if node not in being_edited and node.is_editable():
-		being_edited[node] = frame = BlocksNodeEditor(parent, node)
+		being_edited[node] = frame = BlocksNodeEditor(frame_parent, node)
 		frame.Show(True)
 
 class BlocksNodeEditor(wx.Frame):
-	def __init__(self, parent, node):
-		wx.Frame.__init__(self, parent, -1, "Edit blocks node", wx.DefaultPosition, wx.Size(300, 400))
+	def __init__(self, frame_parent, node):
+		wx.Frame.__init__(self, frame_parent, -1, "Edit blocks node", wx.DefaultPosition, wx.Size(300, 400))
 
 class TopLevelEntryFrame(wx.Panel):
 	blocks_setup = [
