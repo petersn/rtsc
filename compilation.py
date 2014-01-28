@@ -210,6 +210,9 @@ def local_compile(code):
 def capabilities():
 	return sorted([i[:-5] for i in os.listdir(os.path.join(local_dir, "quick_links")) if i.endswith("_data")])
 
+def get_size(target):
+	return os.path.getsize(os.path.join(local_dir, "quick_links", target)+"_data")
+
 if __name__ == "__main__":
 	import sys
 	if sys.argv[1:] in ([], ["--help"]):

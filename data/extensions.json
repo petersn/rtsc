@@ -1,0 +1,57 @@
+# Configuration for rtsc_gui.
+
+{
+	# If data/global_settings.json isn't present, use these values instead.
+	"default_settings": {
+		"text_editor": "gedit",
+		"image_editor": "image_edit",
+		"updater_url": "https://rtsc.mit.edu:50505/",
+		"updater_cert_path": "data/rtsc_updater.crt",
+		"update_check_on_startup": "false"
+	},
+
+	# All supported targets.
+	"targets": [
+		{ "name": "rtscfs", "desc": "Compiled RTSC Image",
+			"long_desc": "A compact image, launchable by a dedicated RTSC launcher application.\nExtremely compact, as it doesn't include the main RTSC launcher code.\nCan later be linked by the quick-linker to any future target -- a very good archival choice.",
+			"default_path": ".rtscfs" },
+		{ "name": "win32", "desc": "32-bit Windows",
+			"long_desc": "Runs on 32- and 64-bit Windows, up to Windows 7.",
+			"default_path": "_32.exe" },
+		{ "name": "win64", "desc": "64-bit Windows",
+			"long_desc": "Runs on 64-bit Windows, up to Windows 7.\nMore efficient than win32, but can't run on 32-bit systems.",
+			"default_path": "_64.exe" },
+		{ "name": "elf32", "desc": "32-bit Linux",
+			"long_desc": "Runs on 32- and 64-bit Linux, with support focused on Debian and Ubuntu variants.",
+			"default_path": "_elf32" },
+		{ "name": "elf64", "desc": "64-bit Linux",
+			"long_desc": "Runs on 64-bit Linux, with support focused on Debian and Ubuntu variants.\nMore efficient than elf32, but can't run on 32-bit systems.",
+			"default_path": "_elf64" },
+		{ "name": "mac32", "desc": "32-bit Mac OS X",
+			"long_desc": "Runs on 32- and 64-bit Mac OS X.",
+			"default_path": "_mac32" },
+		{ "name": "mac64", "desc": "64-bit Mac OS X",
+			"long_desc": "Runs on 64-bit Mac OS X.\nMore efficient than mac32, but can't run on 32 bit systems.",
+			"default_path": "_mac64" },
+		{ "name": "fatmac", "desc": "Mac OS X Fat Binary",
+			"long_desc": "Contains both 32- and 64-bit launchers in a Mach-O fat binary.\nMany megabytes larger than either mac32 or mac64 targets, but contains the data required to run in 64-bit mode if supported, or fall back on 32-bit mode if not.\nThis target is not more portable than mac32, only more efficient on 64-bit platforms.",
+			"default_path": "_mac3264" },
+		{ "name": "html5", "desc": "HTML5 Webpage",
+			"long_desc": "A static HTML5 webpage, complete with resource tree, ready to be embedded as a frame in a page, or loaded directly.\nThis target's output can be substantially reconfigured via the webpage module.",
+			"default_path": "_web" },
+		{ "name": "wii", "desc": "Wii Homebrew",
+			"long_desc": "Homebrew Wii code, ready to be run in the Homebrew Channel.",
+			"default_path": "_wii" }
+	],
+
+	# Modules, and their supported targets.
+	"modules": [
+		{ "name": "basic2d"
+			
+		},
+		{ "name": "opengl", "desc": "asdf",
+			"platforms": ["win32", "elf32", "elf64", "mac64"]
+		}
+	]
+}
+
