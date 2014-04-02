@@ -4,6 +4,7 @@ SDI generic data editor
 """
 
 import wx
+import wx.lib.scrolledpanel
 
 # Generic Editor Elements
 # These are the pieces that are put together to form an editor
@@ -133,7 +134,7 @@ class List(EditorElement):
 		self.bc.text(self.data["name"]+":")
 		self.bc.end_row()
 #		self.ctrl = wx.gizmos.EditableListBox(self.bc.parent, -1, style=wx.gizmos.EL_ALLOW_NEW|wx.gizmos.EL_ALLOW_DELETE)
-		self.ctrl = wx.ListBox(self.bc.parent, -1, style=wx.LB_MULTIPLE)
+		self.ctrl = wx.ListBox(self.bc.parent, -1, style=wx.LB_MULTIPLE, size=(-1, 200))
 		self.bc.sizer.Add(self.ctrl, 1, wx.EXPAND)
 		self.bc.new_row()
 		self.buttons = [wx.Button(self.bc.parent, -1, s) for s in ["Add", "Delete", "Move Up", "Move Down"]]
@@ -186,7 +187,7 @@ class Category(EditorElement):
 		sizer1 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer1.Add((20,0))
 		sizer2 = wx.BoxSizer(wx.VERTICAL)
-		sizer1.Add(sizer2)
+		sizer1.Add(sizer2, 1, wx.EXPAND)
 		self.bc.sizer.Add(sizer1, 0, wx.EXPAND)
 		self.sub_bc = BuildContext(self.bc.parent, sizer2)
 		build_desc(self.sub_bc, self.data["desc"])
@@ -250,7 +251,47 @@ class GenericEditor:
 	def build(self):
 		build_desc(self.bc, self.desc)
 
+class GenericEditorFrame(wx.Frame):
+	bonus_stretch = 200
+	default_size = (400, 500)
+
+	def __init__(self, frame_parent, desc):
+		wx.Frame.__init__(self, frame_parent, -1, size=self.default_size)
+		outer_sizer = wx.BoxSizer(wx.VERTICAL)
+		self.main_panel = wx.lib.scrolledpanel.ScrolledPanel(self, -1)
+		outer_sizer.Add(self.main_panel, 1, wx.EXPAND)
+		self.SetSizer(outer_sizer)
+		sizer = wx.BoxSizer(wx.VERTICAL)
+		self.main_panel.SetSizer(sizer)
+		self.ge = GenericEditor(self.main_panel, sizer, desc)
+		self.ge.build()
+		self.extract_data = self.ge.extract_data
+
+		minimum_height = max(sizer.CalcMin()[1], 50)
+		# We now either: Size to (400, 500), or if the value is within a stretch amount, resize straight to it.
+		print minimum_height
+		if minimum_height <= self.default_size[1]+self.bonus_stretch:
+			self.SetSize((self.default_size[0], minimum_height))
+		else:
+			self.main_panel.SetupScrolling(scroll_x=False, scroll_y=True)
+			self.main_panel.Layout()
+
 if __name__ == "__main__":
+	desc = [
+		(TextLabel, {"label": "Edit this position easily."}),
+		(Category, {"name": "position", "desc": [
+			(NumberBox, {"name": "x"}),
+			(IntegerBox, {"name": "y"}),
+			(StringBox, {"name": "z"}),
+		]}),
+		(NumberSlider, {"name": "w", "min": 0, "max": 100}),
+		(DropDownSelector, {"name": "a", "choices": ["Foo", "Bar", "Baz"]}),
+		(RadioButtonSelector, {"name": "b", "choices": ["Foo", "Bar", "Baz"]}),
+		(Checkbox, {"name": "int"}),
+		(List, {"name": "foo"}),
+		(List, {"name": "qux"}),
+	]
+
 	# Example usage.
 	class Frame(wx.Frame):
 		def __init__(self):
@@ -258,20 +299,7 @@ if __name__ == "__main__":
 			sizer = wx.BoxSizer(wx.VERTICAL)
 			self.SetSizer(sizer)
 
-			self.ge = GenericEditor(self, sizer, [
-				(TextLabel, {"label": "Edit this position easily."}),
-				(Category, {"name": "position", "desc": [
-					(NumberBox, {"name": "x"}),
-					(IntegerBox, {"name": "y"}),
-					(StringBox, {"name": "z"}),
-				]}),
-				(NumberSlider, {"name": "w", "min": 0, "max": 100}),
-				(DropDownSelector, {"name": "a", "choices": ["Foo", "Bar", "Baz"]}),
-				(RadioButtonSelector, {"name": "b", "choices": ["Foo", "Bar", "Baz"]}),
-				(Checkbox, {"name": "int"}),
-				(List, {"name": "foo"}),
-				(List, {"name": "qux"}),
-			])
+			self.ge = GenericEditor(self, sizer, desc)
 			self.ge.build()
 
 			menubar = wx.MenuBar()
@@ -287,7 +315,8 @@ if __name__ == "__main__":
 
 	class App(wx.App):
 		def OnInit(self):
-			Frame().Show(True)
+#			Frame().Show(True)
+			GenericEditorFrame(None, desc).Show(True)
 			return True
 
 	App().MainLoop()
