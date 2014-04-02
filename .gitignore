@@ -5,7 +5,10 @@
 parse_cache
 rt/
 csrt/
-keys/
+keys/rtsc_key
+keys/rtsc_key.pub
+keys/rtsc_key.crt
+quick_links/
 .name
 .snippets
 Main
